@@ -1,17 +1,2 @@
-LAPORAN BERSIH NILAI SENSOR - 2026-08-21 06:40:15
+LAPORAN VISUAL SENSOR - 2026-08-21 06:58:23
 =================================================================
-Ai1 - BatteryVoltage	13.25 Volts	NORMAL	2026-08-21 14:30:00
-Ai1 - CurrentMaximum	157 mA (-=Charge, +=Discharge)	NORMAL	2026-08-21 14:30:00
-Ai1 - InternalHumidity	30 %	NORMAL	2026-08-21 14:30:00
-Ai1 - InternalTemperature	29.19 °C	NORMAL	2026-08-21 14:30:00
-SondeValues - BGA PC ugL	0.841 ug/L	NORMAL	2026-08-21 12:45:00
-SondeValues - Chlorophyll ugL	-0.462 ug/L	NORMAL	2026-08-21 12:45:00
-SondeValues - ODO Sat	17.573 %	NORMAL	2026-08-21 12:45:00
-SondeValues - Salinity	-0 ppm	NORMAL	2026-08-21 12:45:00
-SondeValues - Turbidity	6.073 FNU	NORMAL	2026-08-21 12:45:00
-SondeValues - fDOM RFU
-SondeValues - fDOM RFU	-0.35 RFU	NORMAL	2026-08-21 12:45:00
-Thermistor 10cm	-105 Deg C	NORMAL	2026-08-21 15:00:00
-Thermistor 125cm	-105 Deg C	NORMAL	2026-08-21 15:00:00
-Thermistor 175cm	-105 Deg C	NORMAL	2026-08-21 15:00:00
-Thermistor 75cm	-105 Deg C	NORMAL	2026-08-21 15:00:00
