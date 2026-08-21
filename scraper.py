@@ -20,7 +20,7 @@ def scrape_with_adjustment():
 
     clean_results = set()
 
-    # Kata kunci parameter sensor (ditambah Atmospheric)
+    # Kata kunci parameter sensor diperluas untuk mencakup Atmospheric
     valid_keywords = [
         "BatteryVoltage",
         "CurrentMaximum",
@@ -38,9 +38,14 @@ def scrape_with_adjustment():
         "Thermistor",
     ]
 
-    for line in lines:
+    for i, line in enumerate(lines):
+      # Cek apakah baris saat ini mengandung parameter sensor
       if any(kw.lower() in line.lower() for kw in valid_keywords):
-        if any(
+        sensor_info = line
+
+        # Jika baris tidak memiliki nilai lengkap (tidak ada ":" atau satuan),
+        # gabungkan dengan baris berikutnya agar nilai dan timestamp-nya ikut tertangkap
+        if not any(
             unit in line
             for unit in [
                 "Volts",
@@ -52,23 +57,44 @@ def scrape_with_adjustment():
                 "ug/L",
                 "RFU",
                 "Deg C",
+                "DegreesC",
             ]
         ):
-          if ":" in line:
-            # Fungsi untuk mengurangi jam sebesar 2 jam agar sinkron dengan web
-            def adjust_time(match):
-              time_str = match.group(0)
-              try:
-                dt = datetime.strptime(time_str, "%H:%M:%S")
-                # Kurangi 2 jam (ubah angka 2 jika ingin penyesuaian berbeda)
-                adjusted_dt = dt - timedelta(hours=2)
-                return adjusted_dt.strftime("%H:%M:%S")
-              except:
-                return time_str
+          if i + 1 < len(lines):
+            sensor_info = f"{line} : {lines[i+1]}"
+          if i + 2 < len(lines) and ":" not in sensor_info:
+            sensor_info = f"{sensor_info} {lines[i+2]}"
 
-            # Mengganti jam secara otomatis pada baris teks
-            corrected_line = re.sub(r"\d{2}:\d{2}:\d{2}", adjust_time, line)
-            clean_results.add(corrected_line)
+        # Pastikan baris hasil gabungan memiliki indikator nilai yang sah
+        if any(
+            unit in sensor_info
+            for unit in [
+                "Volts",
+                "mA",
+                "°C",
+                "%",
+                "FNU",
+                "ppm",
+                "ug/L",
+                "RFU",
+                "Deg C",
+                "DegreesC",
+            ]
+        ):
+
+          # Fungsi penyesuaian waktu (kurangi 2 jam)
+          def adjust_time(match):
+            time_str = match.group(0)
+            try:
+              dt = datetime.strptime(time_str, "%H:%M:%S")
+              adjusted_dt = dt - timedelta(hours=2)
+              return adjusted_dt.strftime("%H:%M:%S")
+            except:
+              return time_str
+
+          # Terapkan penyesuaian jam jika ada format jam di baris tersebut
+          corrected_line = re.sub(r"\d{2}:\d{2}:\d{2}", adjust_time, sensor_info)
+          clean_results.add(corrected_line)
 
     # Simpan ke nilaisensor.txt
     with open("nilaisensor.txt", "w", encoding="utf-8") as f:
@@ -79,7 +105,10 @@ def scrape_with_adjustment():
       for item in sorted(clean_results):
         f.write(item + "\n")
 
-    print("[INFO] Berhasil! Penyesuaian waktu & data atmosfer diterapkan.")
+    print(
+        "[INFO] Berhasil! Data atmosfer, sensor air, dan waktu telah"
+        " disesuaikan."
+    )
     browser.close()
 
 
