@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
 
-def scrape_with_adjustment():
+def scrape_clean_final():
   with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
@@ -13,14 +13,14 @@ def scrape_with_adjustment():
     page.goto(url)
 
     print("[INFO] Menunggu halaman memuat seluruh data WebSocket...")
-    time.sleep(15)  # Waktu tunggu agar data stabil
+    time.sleep(15)
 
     page_text = page.inner_text("body")
     lines = [line.strip() for line in page_text.split("\n") if line.strip()]
 
     clean_results = set()
 
-    # Kata kunci parameter sensor diperluas untuk mencakup Atmospheric
+    # Kata kunci valid (Thermistor sengaja DIHAPUS)
     valid_keywords = [
         "BatteryVoltage",
         "CurrentMaximum",
@@ -35,37 +35,39 @@ def scrape_with_adjustment():
         "Chlorophyll",
         "BGA PC",
         "fDOM",
-        "Thermistor",
     ]
 
     for i, line in enumerate(lines):
-      # Cek apakah baris saat ini mengandung parameter sensor
       if any(kw.lower() in line.lower() for kw in valid_keywords):
         sensor_info = line
 
-        # Jika baris tidak memiliki nilai lengkap (tidak ada ":" atau satuan),
-        # gabungkan dengan baris berikutnya agar nilai dan timestamp-nya ikut tertangkap
-        if not any(
-            unit in line
-            for unit in [
-                "Volts",
-                "mA",
-                "°C",
-                "%",
-                "FNU",
-                "ppm",
-                "ug/L",
-                "RFU",
-                "Deg C",
-                "DegreesC",
-            ]
+        # Gabungkan baris ke bawah jika parameter terpecah (khusus Atmospheric atau lainnya)
+        if (
+            "TempAmbient" in line
+            or "HumidityAmbient" in line
+            or not any(
+                unit in line
+                for unit in [
+                    "Volts",
+                    "mA",
+                    "°C",
+                    "%",
+                    "FNU",
+                    "ppm",
+                    "ug/L",
+                    "RFU",
+                    "Deg C",
+                    "DegreesC",
+                ]
+            )
         ):
-          if i + 1 < len(lines):
-            sensor_info = f"{line} : {lines[i+1]}"
-          if i + 2 < len(lines) and ":" not in sensor_info:
-            sensor_info = f"{sensor_info} {lines[i+2]}"
+          combined = line
+          for j in range(1, 4):
+            if i + j < len(lines):
+              combined += " " + lines[i + j]
+          sensor_info = combined
 
-        # Pastikan baris hasil gabungan memiliki indikator nilai yang sah
+        # Validasi akhir satuan ukur
         if any(
             unit in sensor_info
             for unit in [
@@ -82,7 +84,6 @@ def scrape_with_adjustment():
             ]
         ):
 
-          # Fungsi penyesuaian waktu (kurangi 2 jam)
           def adjust_time(match):
             time_str = match.group(0)
             try:
@@ -92,7 +93,6 @@ def scrape_with_adjustment():
             except:
               return time_str
 
-          # Terapkan penyesuaian jam jika ada format jam di baris tersebut
           corrected_line = re.sub(r"\d{2}:\d{2}:\d{2}", adjust_time, sensor_info)
           clean_results.add(corrected_line)
 
@@ -106,11 +106,11 @@ def scrape_with_adjustment():
         f.write(item + "\n")
 
     print(
-        "[INFO] Berhasil! Data atmosfer, sensor air, dan waktu telah"
-        " disesuaikan."
+        "[INFO] Berhasil! Termistor dihapus, Atmospheric & sensor lain"
+        " diperbarui."
     )
     browser.close()
 
 
 if __name__ == "__main__":
-  scrape_with_adjustment()
+  scrape_clean_final()
