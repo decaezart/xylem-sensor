@@ -1,21 +1,16 @@
-LAPORAN NILAI SENSOR - 2026-08-21 07:34:03
+LAPORAN NILAI SENSOR - 2026-08-21 07:59:59
 =================================================================
 Ai1 - BatteryVoltage	13.4 Volts	NORMAL	2026-08-21 13:30:00
 Ai1 - CurrentMaximum	157 mA (-=Charge, +=Discharge)	NORMAL	2026-08-21 13:30:00
 Ai1 - InternalHumidity	30 %	NORMAL	2026-08-21 13:30:00
 Ai1 - InternalTemperature	34.66 °C	NORMAL	2026-08-21 13:30:00
-EXO Sonde Water Body - Salinity : 17.573 %
-EXO Sonde Water Body - Turbidity : 6.073 FNU
-SondeValues - BGA PC ugL	0.841 ug/L	NORMAL	2026-08-21 10:45:00
-SondeValues - Chlorophyll ugL	-0.462 ug/L	NORMAL	2026-08-21 10:45:00
-SondeValues - External Temp	23.274 DegreesC	NORMAL	2026-08-21 10:45:00
-SondeValues - ODO Sat	17.573 %	NORMAL	2026-08-21 10:45:00
-SondeValues - Salinity	-0 ppm	NORMAL	2026-08-21 10:45:00
-SondeValues - Turbidity	6.073 FNU	NORMAL	2026-08-21 10:45:00
+EXO Sonde Water Body - Salinity 102.204 % NORMAL 482%
+EXO Sonde Water Body - Turbidity 467.582 FNU NORMAL 7600%
+SondeValues - BGA PC ugL	4.321 ug/L	NORMAL	2026-08-21 14:15:00
+SondeValues - Chlorophyll ugL	12.003 ug/L	NORMAL	2026-08-21 14:15:00
+SondeValues - External Temp	29.178 DegreesC	NORMAL	2026-08-21 14:15:00
+SondeValues - ODO Sat	102.204 %	NORMAL	2026-08-21 14:15:00
+SondeValues - Salinity	0.135 ppm	NORMAL	2026-08-21 14:15:00
+SondeValues - Turbidity	467.582 FNU	NORMAL	2026-08-21 14:15:00
 SondeValues - fDOM RFU
-SondeValues - fDOM RFU	-0.35 RFU	NORMAL	2026-08-21 10:45:00
-Thermistor 10cm	-105 Deg C	NORMAL	2026-08-21 14:00:00
-Thermistor 125cm	-105 Deg C	NORMAL	2026-08-21 14:00:00
-Thermistor 175cm	-105 Deg C	NORMAL	2026-08-21 14:00:00
-Thermistor 75cm	-105 Deg C	NORMAL	2026-08-21 14:00:00
-Thermistor String Water Body Data : Thermistor 10cm	-105 Deg C	NORMAL	2026-08-21 14:00:00
+SondeValues - fDOM RFU	6.523 RFU	NORMAL	2026-08-21 14:15:00
