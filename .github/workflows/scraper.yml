@@ -3,7 +3,7 @@ name: Auto Scrape Eagle Sensor
 on:
   schedule:
     # Mengatur jadwal berjalan setiap 4 jam sekali
-    - cron: '0 */4 * * *'
+    - cron: '0 */2 * * *'
   workflow_dispatch: # Memungkinkan Anda menjalankan skrip secara manual kapan saja dari web GitHub
 
 jobs:
