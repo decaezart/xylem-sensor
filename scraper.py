@@ -10,11 +10,10 @@ API_URL = "https://namadomainanda.com/api_sensor_xylem.php"
 
 
 def extract_number(text):
-  """Fungsi pembantu untuk mengambil angka murni saja dari sebuah teks string"""
+  """Fungsi pembantu untuk mengambil angka desimal atau bulat secara akurat"""
   if not text:
     return 0.0
-  # Mencari pola angka termasuk negatif dan desimal (contoh: -0.462 atau 13.43)
-  match = re.search(r"-?\d+(\.\d+)?", text)
+  match = re.search(r"-?\d+\.\d+|-?\d+", text)
   return float(match.group()) if match else 0.0
 
 
@@ -56,6 +55,7 @@ def scrape_and_sync():
 
     device_data = {}
     wq_data = {}
+    txt_report_lines = []
 
     def fix_time(time_str):
       try:
@@ -96,33 +96,88 @@ def scrape_and_sync():
 
         # --- DEVICE HEALTH ---
         if "BatteryVoltage" in sensor_info:
-          device_data["battery_voltage"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          device_data["battery_voltage"] = val
           device_data["timestamp"] = full_timestamp
           device_data["status"] = "NORMAL"
+          txt_report_lines.append(
+              f"Ai1 - BatteryVoltage\t{val} Volts\tNORMAL\t{full_timestamp}"
+          )
         elif "CurrentMaximum" in sensor_info:
-          device_data["current_maximum"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          device_data["current_maximum"] = val
+          txt_report_lines.append(
+              f"Ai1 - CurrentMaximum\t{val} mA\tNORMAL\t{full_timestamp}"
+          )
         elif "InternalHumidity" in sensor_info:
-          device_data["internal_humidity"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          device_data["internal_humidity"] = val
+          txt_report_lines.append(
+              f"Ai1 - InternalHumidity\t{val} %\tNORMAL\t{full_timestamp}"
+          )
         elif "InternalTemperature" in sensor_info:
-          device_data["internal_temperature"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          device_data["internal_temperature"] = val
+          txt_report_lines.append(
+              f"Ai1 - InternalTemperature\t{val} °C\tNORMAL\t{full_timestamp}"
+          )
 
         # --- WATER QUALITY (WQMS) ---
         elif "BGA PC" in sensor_info:
-          wq_data["bga_pc"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          wq_data["bga_pc"] = val
           wq_data["timestamp"] = full_timestamp
           wq_data["status"] = "NORMAL"
+          txt_report_lines.append(
+              f"SondeValues - BGA PC ugL\t{val} ug/L\tNORMAL\t{full_timestamp}"
+          )
         elif "Chlorophyll" in sensor_info:
-          wq_data["chlorophyll"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          wq_data["chlorophyll"] = val
+          txt_report_lines.append(
+              f"SondeValues - Chlorophyll ugL\t{val}"
+              f" ug/L\tNORMAL\t{full_timestamp}"
+          )
         elif "External Temp" in sensor_info:
-          wq_data["external_temp"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          wq_data["external_temp"] = val
+          txt_report_lines.append(
+              f"SondeValues - External Temp\t{val}"
+              f" DegreesC\tNORMAL\t{full_timestamp}"
+          )
         elif "ODO Sat" in sensor_info:
-          wq_data["odo_sat"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          wq_data["odo_sat"] = val
+          txt_report_lines.append(
+              f"SondeValues - ODO Sat\t{val} %\tNORMAL\t{full_timestamp}"
+          )
         elif "Salinity" in sensor_info:
-          wq_data["salinity"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          wq_data["salinity"] = val
+          txt_report_lines.append(
+              f"SondeValues - Salinity\t{val} ppm\tNORMAL\t{full_timestamp}"
+          )
         elif "Turbidity" in sensor_info:
-          wq_data["turbidity"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          wq_data["turbidity"] = val
+          txt_report_lines.append(
+              f"SondeValues - Turbidity\t{val} FNU\tNORMAL\t{full_timestamp}"
+          )
         elif "fDOM" in sensor_info:
-          wq_data["fdom"] = extract_number(sensor_info)
+          val = extract_number(sensor_info)
+          wq_data["fdom"] = val
+          txt_report_lines.append(
+              f"SondeValues - fDOM RFU\t{val} RFU\tNORMAL\t{full_timestamp}"
+          )
+
+    # Simpan hasil laporan ke file nilaisensor.txt secara lokal
+    with open("nilaisensor.txt", "w", encoding="utf-8") as f:
+      f.write(
+          f"LAPORAN NILAI SENSOR - {time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+      )
+      f.write("=" * 65 + "\n")
+      for item in sorted(set(txt_report_lines)):
+        f.write(item + "\n")
 
     browser.close()
 
