@@ -20,7 +20,7 @@ jobs:
 
 - name: Install Dependencies
         run: |
-          pip install playwright pymysql
+          pip install playwright
           playwright install --with-deps chromium
 
       - name: Run Scraper Script
