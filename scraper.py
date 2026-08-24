@@ -5,16 +5,27 @@ import time
 from urllib import request
 from playwright.sync_api import sync_playwright
 
-# URL Endpoint file PHP di cPanel Anda
 API_URL = "https://namadomainanda.com/api_sensor_xylem.php"
 
 
 def extract_number(text):
-  """Fungsi pembantu untuk mengambil angka desimal atau bulat secara akurat"""
   if not text:
     return 0.0
   match = re.search(r"-?\d+\.\d+|-?\d+", text)
   return float(match.group()) if match else 0.0
+
+
+def extract_device_val(line_text, keyword):
+  """Mengambil angka secara spesifik setelah keyword perangkat"""
+  try:
+    parts = line_text.split(keyword)
+    if len(parts) > 1:
+      match = re.search(r"-?\d+\.\d+|-?\d+", parts[1])
+      if match:
+        return float(match.group())
+  except:
+    pass
+  return 0.0
 
 
 def send_to_php_api(device_data, wq_data):
@@ -96,7 +107,7 @@ def scrape_and_sync():
 
         # --- DEVICE HEALTH ---
         if "BatteryVoltage" in sensor_info:
-          val = extract_number(sensor_info)
+          val = extract_device_val(sensor_info, "BatteryVoltage")
           device_data["battery_voltage"] = val
           device_data["timestamp"] = full_timestamp
           device_data["status"] = "NORMAL"
@@ -104,19 +115,19 @@ def scrape_and_sync():
               f"Ai1 - BatteryVoltage\t{val} Volts\tNORMAL\t{full_timestamp}"
           )
         elif "CurrentMaximum" in sensor_info:
-          val = extract_number(sensor_info)
+          val = extract_device_val(sensor_info, "CurrentMaximum")
           device_data["current_maximum"] = val
           txt_report_lines.append(
               f"Ai1 - CurrentMaximum\t{val} mA\tNORMAL\t{full_timestamp}"
           )
         elif "InternalHumidity" in sensor_info:
-          val = extract_number(sensor_info)
+          val = extract_device_val(sensor_info, "InternalHumidity")
           device_data["internal_humidity"] = val
           txt_report_lines.append(
               f"Ai1 - InternalHumidity\t{val} %\tNORMAL\t{full_timestamp}"
           )
         elif "InternalTemperature" in sensor_info:
-          val = extract_number(sensor_info)
+          val = extract_device_val(sensor_info, "InternalTemperature")
           device_data["internal_temperature"] = val
           txt_report_lines.append(
               f"Ai1 - InternalTemperature\t{val} °C\tNORMAL\t{full_timestamp}"
@@ -159,10 +170,12 @@ def scrape_and_sync():
           )
         elif "Turbidity" in sensor_info:
           val = extract_number(sensor_info)
-          wq_data["turbidity"] = val
-          txt_report_lines.append(
-              f"SondeValues - Turbidity\t{val} FNU\tNORMAL\t{full_timestamp}"
-          )
+          # Mencegah pembacaan baris duplikat yang salah
+          if "2026." not in str(val):
+            wq_data["turbidity"] = val
+            txt_report_lines.append(
+                f"SondeValues - Turbidity\t{val} FNU\tNORMAL\t{full_timestamp}"
+            )
         elif "fDOM" in sensor_info:
           val = extract_number(sensor_info)
           wq_data["fdom"] = val
@@ -170,7 +183,6 @@ def scrape_and_sync():
               f"SondeValues - fDOM RFU\t{val} RFU\tNORMAL\t{full_timestamp}"
           )
 
-    # Simpan hasil laporan ke file nilaisensor.txt secara lokal
     with open("nilaisensor.txt", "w", encoding="utf-8") as f:
       f.write(
           f"LAPORAN NILAI SENSOR - {time.strftime('%Y-%m-%d %H:%M:%S')}\n"
