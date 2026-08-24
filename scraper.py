@@ -6,10 +6,19 @@ from urllib import request
 from playwright.sync_api import sync_playwright
 
 # URL Endpoint file PHP di cPanel Anda
-API_URL = "https://telemetri-bbws-pomjen.com/KA/api_sensor_xylem.php"
+API_URL = "https://namadomainanda.com/api_sensor_xylem.php"
+
+
+def extract_number(text):
+  """Fungsi pembantu untuk mengambil angka murni saja dari sebuah teks string"""
+  if not text:
+    return 0.0
+  # Mencari pola angka termasuk negatif dan desimal (contoh: -0.462 atau 13.43)
+  match = re.search(r"-?\d+(\.\d+)?", text)
+  return float(match.group()) if match else 0.0
+
 
 def send_to_php_api(device_data, wq_data):
-  """Mengirim data hasil scraping ke file PHP menggunakan metode POST"""
   payload = {}
   if device_data:
     payload["device_health"] = device_data
@@ -24,7 +33,6 @@ def send_to_php_api(device_data, wq_data):
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-
     with request.urlopen(req) as response:
       result = response.read().decode("utf-8")
       print(f"[INFO] Respon server PHP: {result}")
@@ -86,65 +94,41 @@ def scrape_and_sync():
         current_date = datetime.now().strftime("%Y-%m-%d")
         full_timestamp = f"{current_date} {adjusted_time}"
 
+        # --- DEVICE HEALTH ---
         if "BatteryVoltage" in sensor_info:
-          val = (
-              sensor_info.split("Volts")[0]
-              .replace("Ai1 - BatteryVoltage", "")
-              .strip()
-          )
-          device_data["battery_voltage"] = f"{val} Volts"
+          device_data["battery_voltage"] = extract_number(sensor_info)
           device_data["timestamp"] = full_timestamp
           device_data["status"] = "NORMAL"
         elif "CurrentMaximum" in sensor_info:
-          device_data["current_maximum"] = (
-              sensor_info.split("NORMAL")[0].strip()
-          )
+          device_data["current_maximum"] = extract_number(sensor_info)
         elif "InternalHumidity" in sensor_info:
-          val = (
-              sensor_info.split("%")[0]
-              .replace("Ai1 - InternalHumidity", "")
-              .strip()
-          )
-          device_data["internal_humidity"] = f"{val} %"
+          device_data["internal_humidity"] = extract_number(sensor_info)
         elif "InternalTemperature" in sensor_info:
-          val = (
-              sensor_info.split("°C")[0]
-              .replace("Ai1 - InternalTemperature", "")
-              .strip()
-          )
-          device_data["internal_temperature"] = f"{val} °C"
+          device_data["internal_temperature"] = extract_number(sensor_info)
 
+        # --- WATER QUALITY (WQMS) ---
         elif "BGA PC" in sensor_info:
-          val = (
-              sensor_info.split("ug/L")[0]
-              .replace("SondeValues - BGA PC ugL", "")
-              .strip()
-          )
-          wq_data["bga_pc"] = f"{val} ug/L"
+          wq_data["bga_pc"] = extract_number(sensor_info)
           wq_data["timestamp"] = full_timestamp
           wq_data["status"] = "NORMAL"
         elif "Chlorophyll" in sensor_info:
-          val = (
-              sensor_info.split("ug/L")[0]
-              .replace("SondeValues - Chlorophyll ugL", "")
-              .strip()
-          )
-          wq_data["chlorophyll"] = f"{val} ug/L"
+          wq_data["chlorophyll"] = extract_number(sensor_info)
         elif "External Temp" in sensor_info:
-          wq_data["external_temp"] = sensor_info.split("NORMAL")[0].strip()
+          wq_data["external_temp"] = extract_number(sensor_info)
         elif "ODO Sat" in sensor_info:
-          val = sensor_info.split("%")[0].replace("SondeValues - ODO Sat", "").strip()
-          wq_data["odo_sat"] = f"{val} %"
+          wq_data["odo_sat"] = extract_number(sensor_info)
         elif "Salinity" in sensor_info:
-          wq_data["salinity"] = sensor_info.split("NORMAL")[0].strip()
+          wq_data["salinity"] = extract_number(sensor_info)
         elif "Turbidity" in sensor_info:
-          wq_data["turbidity"] = sensor_info.split("NORMAL")[0].strip()
+          wq_data["turbidity"] = extract_number(sensor_info)
         elif "fDOM" in sensor_info:
-          wq_data["fDOM"] = sensor_info.split("NORMAL")[0].strip()
+          wq_data["fdom"] = extract_number(sensor_info)
 
     browser.close()
 
     if device_data or wq_data:
+      print(f"[DEBUG] Data Device: {device_data}")
+      print(f"[DEBUG] Data WQMS: {wq_data}")
       send_to_php_api(device_data, wq_data)
     else:
       print("[WARNING] Tidak ada data sensor yang valid untuk dikirim.")
