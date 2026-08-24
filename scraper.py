@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
 
-def scrape_clean_final():
+def scrape_precision():
   with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
@@ -20,7 +20,7 @@ def scrape_clean_final():
 
     clean_results = set()
 
-    # Kata kunci valid (Thermistor sengaja DIHAPUS)
+    # Kata kunci spesifik parameter sensor
     valid_keywords = [
         "BatteryVoltage",
         "CurrentMaximum",
@@ -35,39 +35,33 @@ def scrape_clean_final():
         "Chlorophyll",
         "BGA PC",
         "fDOM",
+        "Thermistor",
     ]
 
     for i, line in enumerate(lines):
       if any(kw.lower() in line.lower() for kw in valid_keywords):
         sensor_info = line
 
-        # Gabungkan baris ke bawah jika parameter terpecah (khusus Atmospheric atau lainnya)
-        if (
-            "TempAmbient" in line
-            or "HumidityAmbient" in line
-            or not any(
-                unit in line
-                for unit in [
-                    "Volts",
-                    "mA",
-                    "°C",
-                    "%",
-                    "FNU",
-                    "ppm",
-                    "ug/L",
-                    "RFU",
-                    "Deg C",
-                    "DegreesC",
-                ]
-            )
+        # Jika baris tidak memiliki nilai lengkap (tidak ada angka/satuan), gabungkan 1 baris ke bawah
+        if not any(
+            unit in line
+            for unit in [
+                "Volts",
+                "mA",
+                "°C",
+                "%",
+                "FNU",
+                "ppm",
+                "ug/L",
+                "RFU",
+                "Deg C",
+                "DegreesC",
+            ]
         ):
-          combined = line
-          for j in range(1, 4):
-            if i + j < len(lines):
-              combined += " " + lines[i + j]
-          sensor_info = combined
+          if i + 1 < len(lines):
+            sensor_info = f"{line} : {lines[i+1]}"
 
-        # Validasi akhir satuan ukur
+        # Saringan ketat: Pastikan baris benar-benar memuat satuan dan memiliki format waktu (HH:MM:SS)
         if any(
             unit in sensor_info
             for unit in [
@@ -82,8 +76,9 @@ def scrape_clean_final():
                 "Deg C",
                 "DegreesC",
             ]
-        ):
+        ) and re.search(r"\d{2}:\d{2}:\d{2}", sensor_info):
 
+          # Fungsi penyesuaian waktu (kurangi 2 jam agar sesuai dengan web)
           def adjust_time(match):
             time_str = match.group(0)
             try:
@@ -105,12 +100,9 @@ def scrape_clean_final():
       for item in sorted(clean_results):
         f.write(item + "\n")
 
-    print(
-        "[INFO] Berhasil! Termistor dihapus, Atmospheric & sensor lain"
-        " diperbarui."
-    )
+    print("[INFO] Berhasil! Data dibersihkan dari baris ganda.")
     browser.close()
 
 
 if __name__ == "__main__":
-  scrape_clean_final()
+  scrape_precision()
