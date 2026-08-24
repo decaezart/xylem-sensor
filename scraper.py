@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from playwright.sync_api import sync_playwright
 
 
-def scrape_final_tuning():
+def scrape_with_atmospheric():
   with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
@@ -12,15 +12,19 @@ def scrape_final_tuning():
     url = "https://public.eagle.io/public/dash/etpvkt0ofbbt6mt"
     page.goto(url)
 
-    print("[INFO] Menunggu halaman memuat seluruh data WebSocket...")
-    time.sleep(15)
+    print(
+        "[INFO] Menunggu halaman memuat seluruh data (termasuk widget"
+        " Atmospheric)..."
+    )
+    time.sleep(15)  # Beri waktu render WebSocket & SVG
 
+    # 1. Ambil teks umum dari halaman
     page_text = page.inner_text("body")
     lines = [line.strip() for line in page_text.split("\n") if line.strip()]
 
     clean_results = set()
 
-    # Kata kunci sensor yang diinginkan (Thermistor sengaja dihapus)
+    # Daftar kata kunci yang diizinkan (Thermistor & sampah tidak ada)
     valid_keywords = [
         "BatteryVoltage",
         "CurrentMaximum",
@@ -42,36 +46,42 @@ def scrape_final_tuning():
       if "thermistor" in line.lower():
         continue
 
-      if any(kw.lower() in line.lower() for kw in valid_keywords):
+      # Cek apakah baris mengandung kata kunci utama atau Atmospheric
+      is_valid_keyword = any(kw.lower() in line.lower() for kw in valid_keywords)
+      is_atmospheric = "atmospheric" in line.lower()
+
+      if is_valid_keyword or is_atmospheric:
         sensor_info = line
 
-        # Khusus untuk Atmospheric atau baris yang belum lengkap nilainya, gabungkan dengan baris di bawahnya
-        if (
-            "tempambient" in line.lower()
-            or "humidityambient" in line.lower()
-            or not any(
-                unit in line
-                for unit in [
-                    "Volts",
-                    "mA",
-                    "°C",
-                    "%",
-                    "FNU",
-                    "ppm",
-                    "ug/L",
-                    "RFU",
-                    "Deg C",
-                    "DegreesC",
-                ]
-            )
-        ):
+        # Penanganan khusus untuk Atmospheric (karena teks terpecah di widget gauge)
+        if is_atmospheric:
           combined = line
-          for j in range(1, 3):  # Cek hingga 2 baris ke bawah
+          # Gabungkan hingga 4 baris ke bawah untuk menangkap angka, status, dan timestamp gauge
+          for j in range(1, 5):
             if i + j < len(lines):
-              combined += " : " + lines[i + j]
+              combined += " | " + lines[i + j]
           sensor_info = combined
 
-        # Saringan ketat: Harus punya satuan ukur dan format jam (HH:MM:SS)
+        # Jika sensor biasa tapi belum ada nilai/satuan di baris yang sama, gabungkan 1 baris ke bawah
+        elif not any(
+            unit in line
+            for unit in [
+                "Volts",
+                "mA",
+                "°C",
+                "%",
+                "FNU",
+                "ppm",
+                "ug/L",
+                "RFU",
+                "Deg C",
+                "DegreesC",
+            ]
+        ):
+          if i + 1 < len(lines):
+            sensor_info = f"{line} : {lines[i+1]}"
+
+        # Saringan ketat: Harus memuat satuan ukur yang valid DAN ada format jam (HH:MM:SS)
         if any(
             unit in sensor_info
             for unit in [
@@ -88,7 +98,7 @@ def scrape_final_tuning():
             ]
         ) and re.search(r"\d{2}:\d{2}:\d{2}", sensor_info):
 
-          # Fungsi penyesuaian waktu (kurangi 2 jam agar sesuai dengan web)
+          # Fungsi penyesuaian waktu (dikurangi 2 jam agar sinkron dengan web)
           def adjust_time(match):
             time_str = match.group(0)
             try:
@@ -110,12 +120,9 @@ def scrape_final_tuning():
       for item in sorted(clean_results):
         f.write(item + "\n")
 
-    print(
-        "[INFO] Berhasil! Thermistor disingkirkan dan Atmospheric berhasil"
-        " ditarik."
-    )
+    print("[INFO] Berhasil! Data Atmospheric dan sensor lainnya tersimpan.")
     browser.close()
 
 
 if __name__ == "__main__":
-  scrape_final_tuning()
+  scrape_with_atmospheric()
