@@ -5,7 +5,7 @@ import time
 from urllib import request
 from playwright.sync_api import sync_playwright
 
-API_URL = "https://namadomainanda.com/api_sensor_xylem.php"
+API_URL = "https://telemetri-bbws-pomjen.com/KA/api_sensor_xylem.php"
 
 
 def extract_number(text):
