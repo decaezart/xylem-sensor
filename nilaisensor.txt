@@ -1,4 +1,4 @@
-LAPORAN NILAI SENSOR - 2026-09-11 21:25:24
+LAPORAN NILAI SENSOR - 2026-09-11 23:38:47
 =================================================================
 Ai1 - BatteryVoltage	13.25 Volts	NORMAL	2026-09-11 01:30:00
 Ai1 - CurrentMaximum	172.0 mA	NORMAL	2026-09-11 01:30:00
