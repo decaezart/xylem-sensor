@@ -1,13 +1,13 @@
-LAPORAN NILAI SENSOR - 2026-09-11 11:55:07
+LAPORAN NILAI SENSOR - 2026-09-11 15:25:02
 =================================================================
-Ai1 - BatteryVoltage	13.27 Volts	NORMAL	2026-09-11 17:30:00
-Ai1 - CurrentMaximum	184.0 mA	NORMAL	2026-09-11 17:30:00
-Ai1 - InternalHumidity	31.0 %	NORMAL	2026-09-11 17:30:00
-Ai1 - InternalTemperature	32.4 °C	NORMAL	2026-09-11 17:30:00
-SondeValues - BGA PC ugL	3.626 ug/L	NORMAL	2026-09-11 18:00:00
-SondeValues - Chlorophyll ugL	20.189 ug/L	NORMAL	2026-09-11 18:00:00
-SondeValues - External Temp	29.169 DegreesC	NORMAL	2026-09-11 18:00:00
-SondeValues - ODO Sat	94.976 %	NORMAL	2026-09-11 18:00:00
-SondeValues - Salinity	0.165 ppm	NORMAL	2026-09-11 18:00:00
-SondeValues - Turbidity	306.704 FNU	NORMAL	2026-09-11 18:00:00
-SondeValues - fDOM RFU	10.182 RFU	NORMAL	2026-09-11 18:00:00
+Ai1 - BatteryVoltage	13.26 Volts	NORMAL	2026-09-11 21:30:00
+Ai1 - CurrentMaximum	212.0 mA	NORMAL	2026-09-11 21:30:00
+Ai1 - InternalHumidity	31.0 %	NORMAL	2026-09-11 21:30:00
+Ai1 - InternalTemperature	30.23 °C	NORMAL	2026-09-11 21:30:00
+SondeValues - BGA PC ugL	3.254 ug/L	NORMAL	2026-09-11 21:30:00
+SondeValues - Chlorophyll ugL	17.697 ug/L	NORMAL	2026-09-11 21:30:00
+SondeValues - External Temp	28.397 DegreesC	NORMAL	2026-09-11 21:30:00
+SondeValues - ODO Sat	75.917 %	NORMAL	2026-09-11 21:30:00
+SondeValues - Salinity	0.164 ppm	NORMAL	2026-09-11 21:30:00
+SondeValues - Turbidity	259.218 FNU	NORMAL	2026-09-11 21:30:00
+SondeValues - fDOM RFU	11.846 RFU	NORMAL	2026-09-11 21:30:00
