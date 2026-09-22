@@ -3,15 +3,15 @@ LAPORAN NILAI SENSOR
 Timestamp pada laporan adalah timestamp asli dari Eagle.io.
 ======================================================================
 
-Ai1 - BatteryVoltage	13.39 Volts	NORMAL	2026-09-22 09:30:00
-Ai1 - CurrentMaximum	55.0 mA	NORMAL	2026-09-22 09:30:00
-Ai1 - InternalHumidity	33.0 %	NORMAL	2026-09-22 09:30:00
-Ai1 - InternalTemperature	37.71 °C	NORMAL	2026-09-22 09:30:00
-SondeValues - BGA PC ugL	4.315 ug/L	NORMAL	2026-09-22 10:15:00
-SondeValues - Chlorophyll ugL	17.666 ug/L	NORMAL	2026-09-22 10:15:00
-SondeValues - External Temp	27.363 DegreesC	NORMAL	2026-09-22 10:15:00
-SondeValues - ODO Sat	70.183 %	NORMAL	2026-09-22 10:15:00
-SondeValues - Salinity	0.185 ppm	NORMAL	2026-09-22 10:15:00
-SondeValues - Salinity	70.183 ppm	NORMAL	2026-09-22 10:15:00
-SondeValues - Turbidity	469.357 FNU	NORMAL	2026-09-22 10:15:00
-SondeValues - fDOM RFU	8.576 RFU	NORMAL	2026-09-22 10:15:00
+Ai1 - BatteryVoltage	13.36 Volts	NORMAL	2026-09-22 10:30:00
+Ai1 - CurrentMaximum	83.0 mA	NORMAL	2026-09-22 10:30:00
+Ai1 - InternalHumidity	33.0 %	NORMAL	2026-09-22 10:30:00
+Ai1 - InternalTemperature	38.32 °C	NORMAL	2026-09-22 10:30:00
+SondeValues - BGA PC ugL	4.116 ug/L	NORMAL	2026-09-22 10:30:00
+SondeValues - Chlorophyll ugL	17.377 ug/L	NORMAL	2026-09-22 10:30:00
+SondeValues - External Temp	27.738 DegreesC	NORMAL	2026-09-22 10:30:00
+SondeValues - ODO Sat	75.104 %	NORMAL	2026-09-22 10:30:00
+SondeValues - Salinity	0.185 ppm	NORMAL	2026-09-22 10:30:00
+SondeValues - Salinity	75.104 ppm	NORMAL	2026-09-22 10:30:00
+SondeValues - Turbidity	406.253 FNU	NORMAL	2026-09-22 10:30:00
+SondeValues - fDOM RFU	9.191 RFU	NORMAL	2026-09-22 10:30:00
