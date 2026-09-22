@@ -11,7 +11,7 @@ from playwright.sync_api import sync_playwright
 
 API_URL = "https://telemetri-bbws-pomjen.com/KA/api_sensor_xylem.php"
 
-EAGLE_URL = "https://public.eagle.io/public/dash/etpvkt0ofbbt6mt"
+EAGLE_URL = "https://public.eagle.io/public/dash/etpvkt0ofbbt6mt?timezone=Asia/Makassar"
 
 # Waktu tunggu agar data WebSocket Eagle.io selesai dimuat
 WAIT_AFTER_LOAD = 15
