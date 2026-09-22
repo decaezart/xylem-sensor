@@ -228,7 +228,41 @@ def scrape_and_sync():
             # AMBIL TEXT DARI HALAMAN
             # ------------------------------------------------
 
-            page_text = page.inner_text("body")
+           page_text = page.inner_text("body")
+
+print("\n" + "=" * 80)
+print("RAW BARIS WQMS YANG DIBACA PLAYWRIGHT")
+print("=" * 80)
+
+for line in page_text.split("\n"):
+    line = line.strip()
+
+    if any(keyword.lower() in line.lower() for keyword in [
+        "ODO Sat",
+        "External Temp",
+        "Turbidity",
+        "Salinity",
+        "Chlorophyll",
+        "BGA PC",
+        "fDOM"
+    ]):
+        print(repr(line))
+
+print("=" * 80)
+
+print("\n" + "=" * 80)
+print("SEMUA TIMESTAMP YANG DITEMUKAN PLAYWRIGHT")
+print("=" * 80)
+
+timestamps = re.findall(
+    r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}",
+    page_text
+)
+
+for ts in timestamps:
+    print(ts)
+
+print("=" * 80 + "\n")
 
             lines = [
                 line.strip()
