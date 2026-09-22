@@ -234,6 +234,39 @@ def scrape_and_sync():
 
             page = browser.new_page()
 
+            print()
+            print("=" * 70)
+            print("INFORMASI TIMEZONE BROWSER")
+            print("=" * 70)
+            
+            browser_timezone = page.evaluate(
+                "() => Intl.DateTimeFormat().resolvedOptions().timeZone"
+            )
+            
+            browser_offset = page.evaluate(
+                "() => new Date().getTimezoneOffset()"
+            )
+            
+            browser_now = page.evaluate(
+                "() => new Date().toString()"
+            )
+            
+            print(
+                f"Timezone browser : {browser_timezone}"
+            )
+            
+            print(
+                f"Timezone offset  : {browser_offset} menit"
+            )
+            
+            print(
+                f"Waktu browser    : {browser_now}"
+            )
+            
+            print("=" * 70)
+
+            
+
             print(
                 "[INFO] Membuka halaman Eagle.io:"
             )
