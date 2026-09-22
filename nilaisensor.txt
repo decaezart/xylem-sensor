@@ -3,14 +3,14 @@ LAPORAN NILAI SENSOR
 MODE: TEST - TIDAK DIKIRIM KE DATABASE
 ======================================================================
 
-Ai1 - BatteryVoltage	13.27 Volts	NORMAL	2026-09-22 17:30:00
-Ai1 - CurrentMaximum	188.0 mA	NORMAL	2026-09-22 17:30:00
-Ai1 - InternalHumidity	34.0 %	NORMAL	2026-09-22 17:30:00
-Ai1 - InternalTemperature	33.62 °C	NORMAL	2026-09-22 17:30:00
-SondeValues - BGA PC ugL	3.323 ug/L	NORMAL	2026-09-22 18:15:00
-SondeValues - Chlorophyll ugL	17.4 ug/L	NORMAL	2026-09-22 18:15:00
-SondeValues - External Temp	29.148 DegreesC	NORMAL	2026-09-22 18:15:00
-SondeValues - ODO Sat	76.702 %	NORMAL	2026-09-22 18:15:00
-SondeValues - Salinity	0.185 ppm	NORMAL	2026-09-22 18:15:00
-SondeValues - Turbidity	288.014 FNU	NORMAL	2026-09-22 18:15:00
-SondeValues - fDOM RFU	13.179 RFU	NORMAL	2026-09-22 18:15:00
+Ai1 - BatteryVoltage	13.21 Volts	NORMAL	2026-09-22 23:30:00
+Ai1 - CurrentMaximum	181.0 mA	NORMAL	2026-09-22 23:30:00
+Ai1 - InternalHumidity	34.0 %	NORMAL	2026-09-22 23:30:00
+Ai1 - InternalTemperature	29.72 °C	NORMAL	2026-09-22 23:30:00
+SondeValues - BGA PC ugL	2.447 ug/L	NORMAL	2026-09-22 23:30:00
+SondeValues - Chlorophyll ugL	13.14 ug/L	NORMAL	2026-09-22 23:30:00
+SondeValues - External Temp	27.463 DegreesC	NORMAL	2026-09-22 23:30:00
+SondeValues - ODO Sat	71.268 %	NORMAL	2026-09-22 23:30:00
+SondeValues - Salinity	0.188 ppm	NORMAL	2026-09-22 23:30:00
+SondeValues - Turbidity	189.862 FNU	NORMAL	2026-09-22 23:30:00
+SondeValues - fDOM RFU	16.622 RFU	NORMAL	2026-09-22 23:30:00
