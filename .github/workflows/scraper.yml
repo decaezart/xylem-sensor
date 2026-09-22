@@ -2,7 +2,7 @@ name: Auto Scrape Eagle Sensor
 
 on:
   schedule:
-    - cron: '17 * * * *'
+    - cron: '*/15 * * * *'
 
   workflow_dispatch:
 
