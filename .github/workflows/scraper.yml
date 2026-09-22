@@ -2,15 +2,10 @@ name: Auto Scrape Eagle Sensor
 
 on:
   schedule:
-    # Menjalankan scraper setiap 1 jam
-    # pada menit ke-17 untuk menghindari beban tinggi di awal jam
     - cron: '17 * * * *'
-      timezone: 'Asia/Makassar'
 
-  # Memungkinkan menjalankan scraper secara manual
   workflow_dispatch:
 
-# Memberikan izin GitHub Actions untuk melakukan git push
 permissions:
   contents: write
 
@@ -34,8 +29,7 @@ jobs:
           playwright install --with-deps chromium
 
       - name: Run Scraper Script
-        run: |
-          python scraper.py
+        run: python scraper.py
 
       - name: Commit and Push Result
         run: |
