@@ -26,7 +26,7 @@ WAIT_AFTER_LOAD = 15
 # Untuk sekarang JANGAN diubah ke False.
 # ============================================================
 
-TEST_MODE = True
+TEST_MODE = False
 
 
 # ============================================================
