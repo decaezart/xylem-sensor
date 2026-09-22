@@ -2,13 +2,22 @@ name: Auto Scrape Eagle Sensor
 
 on:
   schedule:
-    # Mengatur jadwal berjalan setiap 1 jam sekali
-    - cron: '0 */2 * * *'
-  workflow_dispatch: # Memungkinkan Anda menjalankan skrip secara manual kapan saja dari web GitHub
+    # Menjalankan scraper setiap 1 jam
+    # pada menit ke-17 untuk menghindari beban tinggi di awal jam
+    - cron: '17 * * * *'
+      timezone: 'Asia/Makassar'
+
+  # Memungkinkan menjalankan scraper secara manual
+  workflow_dispatch:
+
+# Memberikan izin GitHub Actions untuk melakukan git push
+permissions:
+  contents: write
 
 jobs:
   run-scraper:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -20,17 +29,25 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install playwright
           playwright install --with-deps chromium
 
       - name: Run Scraper Script
-        run: python scraper.py
+        run: |
+          python scraper.py
 
       - name: Commit and Push Result
         run: |
-          git config --global user.name 'GitHub Actions Bot'
-          git config --global user.email 'actions@github.com'
-          git config --global --add safe.directory '*'
-          git add nilaisensor.txt || true
-          git commit -m "Update otomatis data sensor terbaru" || echo "Tidak ada perubahan data"
-          git push || echo "Tidak ada perubahan untuk di-push"
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git config --global --add safe.directory "*"
+
+          git add nilaisensor.txt
+
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan data sensor."
+          else
+            git commit -m "Update otomatis data sensor terbaru"
+            git push
+          fi
