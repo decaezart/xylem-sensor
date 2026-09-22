@@ -1,17 +1,16 @@
 LAPORAN NILAI SENSOR
 ======================================================================
-Timestamp pada laporan adalah timestamp asli dari Eagle.io.
+MODE: TEST - TIDAK DIKIRIM KE DATABASE
 ======================================================================
 
 Ai1 - BatteryVoltage	13.36 Volts	NORMAL	2026-09-22 10:30:00
 Ai1 - CurrentMaximum	83.0 mA	NORMAL	2026-09-22 10:30:00
 Ai1 - InternalHumidity	33.0 %	NORMAL	2026-09-22 10:30:00
 Ai1 - InternalTemperature	38.32 °C	NORMAL	2026-09-22 10:30:00
-SondeValues - BGA PC ugL	4.116 ug/L	NORMAL	2026-09-22 10:30:00
-SondeValues - Chlorophyll ugL	17.377 ug/L	NORMAL	2026-09-22 10:30:00
-SondeValues - External Temp	27.738 DegreesC	NORMAL	2026-09-22 10:30:00
-SondeValues - ODO Sat	75.104 %	NORMAL	2026-09-22 10:30:00
-SondeValues - Salinity	0.185 ppm	NORMAL	2026-09-22 10:30:00
-SondeValues - Salinity	75.104 ppm	NORMAL	2026-09-22 10:30:00
-SondeValues - Turbidity	406.253 FNU	NORMAL	2026-09-22 10:30:00
-SondeValues - fDOM RFU	9.191 RFU	NORMAL	2026-09-22 10:30:00
+SondeValues - BGA PC ugL	4.057 ug/L	NORMAL	2026-09-22 10:45:00
+SondeValues - Chlorophyll ugL	17.408 ug/L	NORMAL	2026-09-22 10:45:00
+SondeValues - External Temp	27.884 DegreesC	NORMAL	2026-09-22 10:45:00
+SondeValues - ODO Sat	77.43 %	NORMAL	2026-09-22 10:45:00
+SondeValues - Salinity	0.185 ppm	NORMAL	2026-09-22 10:45:00
+SondeValues - Turbidity	420.32 FNU	NORMAL	2026-09-22 10:45:00
+SondeValues - fDOM RFU	9.464 RFU	NORMAL	2026-09-22 10:45:00
