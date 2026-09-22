@@ -13,9 +13,20 @@ API_URL = "https://telemetri-bbws-pomjen.com/KA/api_sensor_xylem.php"
 
 EAGLE_URL = "https://public.eagle.io/public/dash/etpvkt0ofbbt6mt"
 
-# Waktu tunggu setelah halaman dibuka agar WebSocket/data Eagle.io
-# mempunyai waktu untuk memuat data.
+# Waktu tunggu agar data WebSocket Eagle.io selesai dimuat
 WAIT_AFTER_LOAD = 15
+
+# ============================================================
+# MODE PENGUJIAN
+# ============================================================
+#
+# True  = HANYA SCRAPING, TIDAK KIRIM KE DATABASE
+# False = SCRAPING + KIRIM KE PHP API
+#
+# Untuk sekarang JANGAN diubah ke False.
+# ============================================================
+
+TEST_MODE = True
 
 
 # ============================================================
@@ -24,48 +35,24 @@ WAIT_AFTER_LOAD = 15
 
 def extract_number(text):
     """
-    Mengambil angka pertama dari sebuah teks.
+    Mengambil angka pertama dari teks.
 
     Contoh:
-        '27.146 DegreesC' -> 27.146
-        '390.075 FNU'     -> 390.075
-        '55 mA'           -> 55.0
+        27.738 DegreesC -> 27.738
+        406.253 FNU     -> 406.253
+        0.185 ppm       -> 0.185
     """
 
     if not text:
         return 0.0
 
-    match = re.search(r"-?\d+\.\d+|-?\d+", text)
+    match = re.search(
+        r"-?\d+(?:\.\d+)?",
+        text
+    )
 
-    return float(match.group()) if match else 0.0
-
-
-def extract_device_val(line_text, keyword):
-    """
-    Mengambil angka setelah keyword perangkat.
-
-    Contoh:
-        'BatteryVoltage 13.39 Volts'
-        -> 13.39
-
-        'CurrentMaximum 55 mA'
-        -> 55.0
-    """
-
-    try:
-        parts = line_text.split(keyword)
-
-        if len(parts) > 1:
-            match = re.search(
-                r"-?\d+\.\d+|-?\d+",
-                parts[1]
-            )
-
-            if match:
-                return float(match.group())
-
-    except Exception:
-        pass
+    if match:
+        return float(match.group())
 
     return 0.0
 
@@ -76,21 +63,20 @@ def extract_device_val(line_text, keyword):
 
 def extract_timestamp(text):
     """
-    Mengambil TIMESTAMP LENGKAP dari halaman Eagle.io.
+    Mengambil timestamp lengkap dari satu baris.
 
     Contoh:
-        'SondeValues - ODO Sat 69.133 % NORMAL 2026-09-22 08:00:00'
+        SondeValues - Salinity    0.185 ppm
+        NORMAL    2026-09-22 10:30:00
 
-    menghasilkan:
+    Hasil:
+        2026-09-22 10:30:00
 
-        '2026-09-22 08:00:00'
-
-    PENTING:
-    - Tidak menggunakan datetime.now()
-    - Tidak melakukan pengurangan/penambahan jam
-    - Tidak melakukan konversi timezone
-    - Menggunakan timestamp persis seperti yang ditampilkan
-      oleh website sumber.
+    Tidak melakukan:
+        - datetime.now()
+        - penambahan jam
+        - pengurangan jam
+        - konversi timezone
     """
 
     if not text:
@@ -122,12 +108,14 @@ def send_to_php_api(device_data, wq_data):
         payload["wq_ms"] = wq_data
 
     if not payload:
-        print("[WARNING] Tidak ada data yang akan dikirim.")
+        print(
+            "[WARNING] Tidak ada data yang akan dikirim."
+        )
         return
 
     print()
     print("=" * 70)
-    print("[INFO] DATA YANG AKAN DIKIRIM KE PHP API")
+    print("DATA YANG AKAN DIKIRIM KE PHP API")
     print("=" * 70)
 
     print(
@@ -153,22 +141,31 @@ def send_to_php_api(device_data, wq_data):
             headers={
                 "Content-Type": "application/json"
             },
-            method="POST",
+            method="POST"
         )
 
-        with request.urlopen(req, timeout=60) as response:
+        with request.urlopen(
+            req,
+            timeout=60
+        ) as response:
 
-            result = response.read().decode("utf-8")
+            result = response.read().decode(
+                "utf-8"
+            )
 
             print()
-            print("[INFO] Respon server PHP:")
+            print(
+                "[INFO] Respon server PHP:"
+            )
+
             print(result)
 
     except Exception as e:
 
         print()
         print(
-            f"[ERROR] Gagal mengirim data ke API PHP: {e}"
+            f"[ERROR] Gagal mengirim data "
+            f"ke API PHP: {e}"
         )
 
 
@@ -183,10 +180,43 @@ def scrape_and_sync():
     print("MEMULAI SCRAPER XYLEM / EAGLE.IO")
     print("=" * 70)
 
+    print()
+
+    if TEST_MODE:
+
+        print(
+            "[MODE] TEST MODE AKTIF"
+        )
+
+        print(
+            "[MODE] Data TIDAK akan dikirim ke database."
+        )
+
+    else:
+
+        print(
+            "[MODE] PRODUCTION MODE"
+        )
+
+        print(
+            "[MODE] Data AKAN dikirim ke PHP API."
+        )
+
+    print()
+
+    # ========================================================
+    # TEMPAT MENYIMPAN HASIL SCRAPING
+    # ========================================================
+
     device_data = {}
+
     wq_data = {}
 
     txt_report_lines = []
+
+    # ========================================================
+    # PLAYWRIGHT
+    # ========================================================
 
     with sync_playwright() as p:
 
@@ -195,7 +225,7 @@ def scrape_and_sync():
         try:
 
             # ------------------------------------------------
-            # BUKA BROWSER
+            # BUKA CHROMIUM
             # ------------------------------------------------
 
             browser = p.chromium.launch(
@@ -204,9 +234,17 @@ def scrape_and_sync():
 
             page = browser.new_page()
 
-            print()
-            print("[INFO] Membuka halaman Eagle.io:")
-            print(EAGLE_URL)
+            print(
+                "[INFO] Membuka halaman Eagle.io:"
+            )
+
+            print(
+                EAGLE_URL
+            )
+
+            # ------------------------------------------------
+            # BUKA WEBSITE
+            # ------------------------------------------------
 
             page.goto(
                 EAGLE_URL,
@@ -214,58 +252,35 @@ def scrape_and_sync():
                 timeout=60000
             )
 
+            print()
             print(
                 "[INFO] Halaman berhasil dibuka."
             )
 
             print(
-                "[INFO] Menunggu halaman memuat data WebSocket..."
+                "[INFO] Menunggu halaman memuat "
+                "data WebSocket..."
             )
 
-            time.sleep(WAIT_AFTER_LOAD)
-
             # ------------------------------------------------
+            # TUNGGU DATA
+            # ------------------------------------------------
+
+            time.sleep(
+                WAIT_AFTER_LOAD
+            )
+
+            # =================================================
             # AMBIL TEXT DARI HALAMAN
-            # ------------------------------------------------
+            # =================================================
 
-            page_text = page.inner_text("body")
-
-            print("\n" + "=" * 80)
-            print("RAW BARIS WQMS YANG DIBACA PLAYWRIGHT")
-            print("=" * 80)
-
-            for line in page_text.split("\n"):
-                line = line.strip()
-
-                if any(
-                    keyword.lower() in line.lower()
-                    for keyword in [
-                        "ODO Sat",
-                        "External Temp",
-                        "Turbidity",
-                        "Salinity",
-                        "Chlorophyll",
-                        "BGA PC",
-                        "fDOM"
-                    ]
-                ):
-                    print(repr(line))
-
-            print("=" * 80)
-
-            print("\n" + "=" * 80)
-            print("SEMUA TIMESTAMP YANG DITEMUKAN PLAYWRIGHT")
-            print("=" * 80)
-
-            timestamps = re.findall(
-                r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}",
-                page_text
+            page_text = page.inner_text(
+                "body"
             )
 
-            for ts in timestamps:
-                print(ts)
-
-            print("=" * 80 + "\n")
+            # =================================================
+            # UBAH MENJADI BARIS
+            # =================================================
 
             lines = [
                 line.strip()
@@ -275,396 +290,519 @@ def scrape_and_sync():
 
             print()
             print(
-                f"[INFO] Jumlah baris yang dibaca: {len(lines)}"
+                "[INFO] Jumlah baris yang dibaca: "
+                f"{len(lines)}"
             )
 
-            # ------------------------------------------------
-            # PROSES SETIAP BARIS
-            # ------------------------------------------------
+            # =================================================
+            # DEBUG
+            # TAMPILKAN BARIS WQMS LENGKAP
+            # =================================================
 
-            for i, line in enumerate(lines):
+            print()
+            print("=" * 80)
+            print(
+                "BARIS SENSOR LENGKAP YANG DIBACA PLAYWRIGHT"
+            )
+            print("=" * 80)
+
+            for line in lines:
+
+                # Abaikan thermistor
+                if "thermistor" in line.lower():
+                    continue
+
+                # Hanya tampilkan baris yang memiliki
+                # timestamp lengkap
+                timestamp = extract_timestamp(
+                    line
+                )
+
+                if not timestamp:
+                    continue
+
+                if (
+                    "SondeValues -" in line
+                    or "BatteryVoltage" in line
+                    or "CurrentMaximum" in line
+                    or "InternalTemperature" in line
+                    or "InternalHumidity" in line
+                ):
+
+                    print(
+                        repr(line)
+                    )
+
+            print("=" * 80)
+
+            # =================================================
+            # DEBUG
+            # SEMUA TIMESTAMP YANG DITEMUKAN
+            # =================================================
+
+            print()
+            print("=" * 80)
+            print(
+                "SEMUA TIMESTAMP YANG DITEMUKAN PLAYWRIGHT"
+            )
+            print("=" * 80)
+
+            all_timestamps = re.findall(
+                r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}",
+                page_text
+            )
+
+            for timestamp in all_timestamps:
+
+                print(
+                    timestamp
+                )
+
+            print("=" * 80)
+
+            # =================================================
+            # PROSES SETIAP BARIS
+            # =================================================
+            #
+            # PENTING:
+            #
+            # Kita TIDAK lagi melakukan:
+            #
+            # sensor_info = line + lines[i+1]
+            #
+            # Karena metode tersebut menyebabkan
+            # Salinity mengambil nilai ODO Sat.
+            #
+            # Kita hanya memproses baris yang memang
+            # sudah lengkap dan memiliki timestamp.
+            # =================================================
+
+            for line in lines:
 
                 # ------------------------------------------------
-                # Abaikan thermistor
+                # Abaikan Thermistor
                 # ------------------------------------------------
 
                 if "thermistor" in line.lower():
                     continue
 
-                sensor_info = line
-
                 # ------------------------------------------------
-                # Beberapa struktur halaman dapat memisahkan
-                # nama sensor dan nilainya ke baris berbeda.
-                #
-                # Pertahankan mekanisme dari scraper lama.
+                # Cari timestamp pada BARIS YANG SAMA
                 # ------------------------------------------------
 
-                if not any(
-                    u in line
-                    for u in [
-                        "Volts",
-                        "mA",
-                        "°C",
-                        "%",
-                        "FNU",
-                        "ppm",
-                        "ug/L",
-                        "RFU",
-                        "Deg C",
-                        "DegreesC",
-                    ]
-                ):
-
-                    if i + 1 < len(lines):
-
-                        sensor_info = (
-                            f"{line} : {lines[i + 1]}"
-                        )
-
-                # ------------------------------------------------
-                # CARI TIMESTAMP LENGKAP
-                #
-                # Contoh:
-                # 2026-09-22 08:00:00
-                # ------------------------------------------------
-
-                full_timestamp = extract_timestamp(
-                    sensor_info
+                timestamp = extract_timestamp(
+                    line
                 )
 
-                # ------------------------------------------------
-                # Jika timestamp tidak ada pada sensor_info,
-                # coba cari timestamp pada beberapa baris
-                # di sekitar baris tersebut.
-                #
-                # Ini untuk mengantisipasi struktur DOM Eagle.io
-                # yang memisahkan data menjadi beberapa baris.
-                # ------------------------------------------------
-
-                if not full_timestamp:
-
-                    context_lines = [
-                        line
-                    ]
-
-                    if i > 0:
-                        context_lines.append(
-                            lines[i - 1]
-                        )
-
-                    if i + 1 < len(lines):
-                        context_lines.append(
-                            lines[i + 1]
-                        )
-
-                    if i + 2 < len(lines):
-                        context_lines.append(
-                            lines[i + 2]
-                        )
-
-                    context_text = " ".join(
-                        context_lines
-                    )
-
-                    full_timestamp = extract_timestamp(
-                        context_text
-                    )
-
-                # ------------------------------------------------
-                # Jika timestamp benar-benar tidak ditemukan,
-                # jangan membuat timestamp sendiri.
-                #
-                # Data tidak diberi timestamp palsu.
-                # ------------------------------------------------
-
-                if not full_timestamp:
+                # Jika baris tidak mempunyai timestamp,
+                # abaikan.
+                if not timestamp:
                     continue
 
                 # =================================================
                 # DEVICE HEALTH
                 # =================================================
 
-                if "BatteryVoltage" in sensor_info:
+                # ------------------------------------------------
+                # Battery Voltage
+                # ------------------------------------------------
 
-                    val = extract_device_val(
-                        sensor_info,
-                        "BatteryVoltage"
+                if "BatteryVoltage" in line:
+
+                    match = re.search(
+                        r"BatteryVoltage\s+(-?\d+(?:\.\d+)?)",
+                        line
                     )
 
-                    device_data[
-                        "battery_voltage"
-                    ] = val
+                    if match:
 
-                    device_data[
-                        "timestamp"
-                    ] = full_timestamp
+                        value = float(
+                            match.group(1)
+                        )
 
-                    device_data[
-                        "status"
-                    ] = "NORMAL"
+                        device_data[
+                            "battery_voltage"
+                        ] = value
 
-                    txt_report_lines.append(
-                        f"Ai1 - BatteryVoltage\t"
-                        f"{val} Volts\t"
-                        f"NORMAL\t"
-                        f"{full_timestamp}"
+                        device_data[
+                            "timestamp"
+                        ] = timestamp
+
+                        device_data[
+                            "status"
+                        ] = "NORMAL"
+
+                        txt_report_lines.append(
+                            "Ai1 - BatteryVoltage\t"
+                            f"{value} Volts\t"
+                            f"NORMAL\t"
+                            f"{timestamp}"
+                        )
+
+                        print(
+                            "[TIMESTAMP][DEVICE] "
+                            "BatteryVoltage -> "
+                            f"{timestamp}"
+                        )
+
+                # ------------------------------------------------
+                # Current Maximum
+                # ------------------------------------------------
+
+                elif "CurrentMaximum" in line:
+
+                    match = re.search(
+                        r"CurrentMaximum\s+(-?\d+(?:\.\d+)?)",
+                        line
                     )
 
-                    print(
-                        f"[TIMESTAMP][DEVICE] "
-                        f"BatteryVoltage -> "
-                        f"{full_timestamp}"
+                    if match:
+
+                        value = float(
+                            match.group(1)
+                        )
+
+                        device_data[
+                            "current_maximum"
+                        ] = value
+
+                        txt_report_lines.append(
+                            "Ai1 - CurrentMaximum\t"
+                            f"{value} mA\t"
+                            f"NORMAL\t"
+                            f"{timestamp}"
+                        )
+
+                        print(
+                            "[TIMESTAMP][DEVICE] "
+                            "CurrentMaximum -> "
+                            f"{timestamp}"
+                        )
+
+                # ------------------------------------------------
+                # Internal Temperature
+                # ------------------------------------------------
+
+                elif "InternalTemperature" in line:
+
+                    match = re.search(
+                        r"InternalTemperature\s+(-?\d+(?:\.\d+)?)",
+                        line
                     )
 
-                elif "CurrentMaximum" in sensor_info:
+                    if match:
 
-                    val = extract_device_val(
-                        sensor_info,
-                        "CurrentMaximum"
+                        value = float(
+                            match.group(1)
+                        )
+
+                        device_data[
+                            "internal_temperature"
+                        ] = value
+
+                        txt_report_lines.append(
+                            "Ai1 - InternalTemperature\t"
+                            f"{value} °C\t"
+                            f"NORMAL\t"
+                            f"{timestamp}"
+                        )
+
+                        print(
+                            "[TIMESTAMP][DEVICE] "
+                            "InternalTemperature -> "
+                            f"{timestamp}"
+                        )
+
+                # ------------------------------------------------
+                # Internal Humidity
+                # ------------------------------------------------
+
+                elif "InternalHumidity" in line:
+
+                    match = re.search(
+                        r"InternalHumidity\s+(-?\d+(?:\.\d+)?)",
+                        line
                     )
 
-                    device_data[
-                        "current_maximum"
-                    ] = val
+                    if match:
 
-                    txt_report_lines.append(
-                        f"Ai1 - CurrentMaximum\t"
-                        f"{val} mA\t"
-                        f"NORMAL\t"
-                        f"{full_timestamp}"
-                    )
+                        value = float(
+                            match.group(1)
+                        )
 
-                    print(
-                        f"[TIMESTAMP][DEVICE] "
-                        f"CurrentMaximum -> "
-                        f"{full_timestamp}"
-                    )
+                        device_data[
+                            "internal_humidity"
+                        ] = value
 
-                elif "InternalHumidity" in sensor_info:
+                        txt_report_lines.append(
+                            "Ai1 - InternalHumidity\t"
+                            f"{value} %\t"
+                            f"NORMAL\t"
+                            f"{timestamp}"
+                        )
 
-                    val = extract_device_val(
-                        sensor_info,
-                        "InternalHumidity"
-                    )
-
-                    device_data[
-                        "internal_humidity"
-                    ] = val
-
-                    txt_report_lines.append(
-                        f"Ai1 - InternalHumidity\t"
-                        f"{val} %\t"
-                        f"NORMAL\t"
-                        f"{full_timestamp}"
-                    )
-
-                    print(
-                        f"[TIMESTAMP][DEVICE] "
-                        f"InternalHumidity -> "
-                        f"{full_timestamp}"
-                    )
-
-                elif "InternalTemperature" in sensor_info:
-
-                    val = extract_device_val(
-                        sensor_info,
-                        "InternalTemperature"
-                    )
-
-                    device_data[
-                        "internal_temperature"
-                    ] = val
-
-                    txt_report_lines.append(
-                        f"Ai1 - InternalTemperature\t"
-                        f"{val} °C\t"
-                        f"NORMAL\t"
-                        f"{full_timestamp}"
-                    )
-
-                    print(
-                        f"[TIMESTAMP][DEVICE] "
-                        f"InternalTemperature -> "
-                        f"{full_timestamp}"
-                    )
+                        print(
+                            "[TIMESTAMP][DEVICE] "
+                            "InternalHumidity -> "
+                            f"{timestamp}"
+                        )
 
                 # =================================================
                 # WATER QUALITY - WQMS
                 # =================================================
 
-                elif "BGA PC" in sensor_info:
+                # ------------------------------------------------
+                # ODO Sat
+                # ------------------------------------------------
 
-                    val = extract_number(
-                        sensor_info
+                elif "ODO Sat" in line:
+
+                    match = re.search(
+                        r"ODO Sat\s+(-?\d+(?:\.\d+)?)",
+                        line
                     )
 
-                    wq_data[
-                        "bga_pc"
-                    ] = val
+                    if match:
 
-                    wq_data[
-                        "timestamp"
-                    ] = full_timestamp
-
-                    wq_data[
-                        "status"
-                    ] = "NORMAL"
-
-                    txt_report_lines.append(
-                        f"SondeValues - BGA PC ugL\t"
-                        f"{val} ug/L\t"
-                        f"NORMAL\t"
-                        f"{full_timestamp}"
-                    )
-
-                    print(
-                        f"[TIMESTAMP][WQMS] "
-                        f"BGA PC -> "
-                        f"{full_timestamp}"
-                    )
-
-                elif "Chlorophyll" in sensor_info:
-
-                    val = extract_number(
-                        sensor_info
-                    )
-
-                    wq_data[
-                        "chlorophyll"
-                    ] = val
-
-                    txt_report_lines.append(
-                        f"SondeValues - Chlorophyll ugL\t"
-                        f"{val} ug/L\t"
-                        f"NORMAL\t"
-                        f"{full_timestamp}"
-                    )
-
-                    print(
-                        f"[TIMESTAMP][WQMS] "
-                        f"Chlorophyll -> "
-                        f"{full_timestamp}"
-                    )
-
-                elif "External Temp" in sensor_info:
-
-                    val = extract_number(
-                        sensor_info
-                    )
-
-                    wq_data[
-                        "external_temp"
-                    ] = val
-
-                    txt_report_lines.append(
-                        f"SondeValues - External Temp\t"
-                        f"{val} DegreesC\t"
-                        f"NORMAL\t"
-                        f"{full_timestamp}"
-                    )
-
-                    print(
-                        f"[TIMESTAMP][WQMS] "
-                        f"External Temp -> "
-                        f"{full_timestamp}"
-                    )
-
-                elif "ODO Sat" in sensor_info:
-
-                    val = extract_number(
-                        sensor_info
-                    )
-
-                    wq_data[
-                        "odo_sat"
-                    ] = val
-
-                    txt_report_lines.append(
-                        f"SondeValues - ODO Sat\t"
-                        f"{val} %\t"
-                        f"NORMAL\t"
-                        f"{full_timestamp}"
-                    )
-
-                    print(
-                        f"[TIMESTAMP][WQMS] "
-                        f"ODO Sat -> "
-                        f"{full_timestamp}"
-                    )
-
-                elif "Salinity" in sensor_info:
-
-                    val = extract_number(
-                        sensor_info
-                    )
-
-                    wq_data[
-                        "salinity"
-                    ] = val
-
-                    txt_report_lines.append(
-                        f"SondeValues - Salinity\t"
-                        f"{val} ppm\t"
-                        f"NORMAL\t"
-                        f"{full_timestamp}"
-                    )
-
-                    print(
-                        f"[TIMESTAMP][WQMS] "
-                        f"Salinity -> "
-                        f"{full_timestamp}"
-                    )
-
-                elif "Turbidity" in sensor_info:
-
-                    val = extract_number(
-                        sensor_info
-                    )
-
-                    # Mencegah pembacaan angka yang salah
-                    # akibat baris duplikat / timestamp.
-                    if "2026." not in str(val):
+                        value = float(
+                            match.group(1)
+                        )
 
                         wq_data[
-                            "turbidity"
-                        ] = val
+                            "odo_sat"
+                        ] = value
+
+                        wq_data[
+                            "timestamp"
+                        ] = timestamp
+
+                        wq_data[
+                            "status"
+                        ] = "NORMAL"
 
                         txt_report_lines.append(
-                            f"SondeValues - Turbidity\t"
-                            f"{val} FNU\t"
+                            "SondeValues - ODO Sat\t"
+                            f"{value} %\t"
                             f"NORMAL\t"
-                            f"{full_timestamp}"
+                            f"{timestamp}"
                         )
 
                         print(
-                            f"[TIMESTAMP][WQMS] "
-                            f"Turbidity -> "
-                            f"{full_timestamp}"
+                            "[TIMESTAMP][WQMS] "
+                            "ODO Sat -> "
+                            f"{timestamp}"
                         )
 
-                elif "fDOM" in sensor_info:
+                # ------------------------------------------------
+                # External Temperature
+                # ------------------------------------------------
 
-                    val = extract_number(
-                        sensor_info
+                elif "External Temp" in line:
+
+                    match = re.search(
+                        r"External Temp\s+(-?\d+(?:\.\d+)?)",
+                        line
                     )
 
-                    wq_data[
-                        "fdom"
-                    ] = val
+                    if match:
 
-                    txt_report_lines.append(
-                        f"SondeValues - fDOM RFU\t"
-                        f"{val} RFU\t"
-                        f"NORMAL\t"
-                        f"{full_timestamp}"
+                        value = float(
+                            match.group(1)
+                        )
+
+                        wq_data[
+                            "external_temp"
+                        ] = value
+
+                        txt_report_lines.append(
+                            "SondeValues - External Temp\t"
+                            f"{value} DegreesC\t"
+                            f"NORMAL\t"
+                            f"{timestamp}"
+                        )
+
+                        print(
+                            "[TIMESTAMP][WQMS] "
+                            "External Temp -> "
+                            f"{timestamp}"
+                        )
+
+                # ------------------------------------------------
+                # Turbidity
+                # ------------------------------------------------
+
+                elif "Turbidity" in line:
+
+                    match = re.search(
+                        r"Turbidity\s+(-?\d+(?:\.\d+)?)",
+                        line
                     )
 
-                    print(
-                        f"[TIMESTAMP][WQMS] "
-                        f"fDOM -> "
-                        f"{full_timestamp}"
+                    if match:
+
+                        value = float(
+                            match.group(1)
+                        )
+
+                        wq_data[
+                            "turbidity"
+                        ] = value
+
+                        txt_report_lines.append(
+                            "SondeValues - Turbidity\t"
+                            f"{value} FNU\t"
+                            f"NORMAL\t"
+                            f"{timestamp}"
+                        )
+
+                        print(
+                            "[TIMESTAMP][WQMS] "
+                            "Turbidity -> "
+                            f"{timestamp}"
+                        )
+
+                # ------------------------------------------------
+                # Salinity
+                # ------------------------------------------------
+
+                elif "Salinity" in line:
+
+                    match = re.search(
+                        r"Salinity\s+(-?\d+(?:\.\d+)?)",
+                        line
                     )
+
+                    if match:
+
+                        value = float(
+                            match.group(1)
+                        )
+
+                        wq_data[
+                            "salinity"
+                        ] = value
+
+                        txt_report_lines.append(
+                            "SondeValues - Salinity\t"
+                            f"{value} ppm\t"
+                            f"NORMAL\t"
+                            f"{timestamp}"
+                        )
+
+                        print(
+                            "[TIMESTAMP][WQMS] "
+                            "Salinity -> "
+                            f"{timestamp}"
+                        )
+
+                # ------------------------------------------------
+                # Chlorophyll
+                # ------------------------------------------------
+
+                elif "Chlorophyll" in line:
+
+                    match = re.search(
+                        r"Chlorophyll(?:\s+ugL)?\s+(-?\d+(?:\.\d+)?)",
+                        line
+                    )
+
+                    if match:
+
+                        value = float(
+                            match.group(1)
+                        )
+
+                        wq_data[
+                            "chlorophyll"
+                        ] = value
+
+                        txt_report_lines.append(
+                            "SondeValues - Chlorophyll ugL\t"
+                            f"{value} ug/L\t"
+                            f"NORMAL\t"
+                            f"{timestamp}"
+                        )
+
+                        print(
+                            "[TIMESTAMP][WQMS] "
+                            "Chlorophyll -> "
+                            f"{timestamp}"
+                        )
+
+                # ------------------------------------------------
+                # BGA PC
+                # ------------------------------------------------
+
+                elif "BGA PC" in line:
+
+                    match = re.search(
+                        r"BGA PC(?:\s+ugL)?\s+(-?\d+(?:\.\d+)?)",
+                        line
+                    )
+
+                    if match:
+
+                        value = float(
+                            match.group(1)
+                        )
+
+                        wq_data[
+                            "bga_pc"
+                        ] = value
+
+                        wq_data[
+                            "timestamp"
+                        ] = timestamp
+
+                        wq_data[
+                            "status"
+                        ] = "NORMAL"
+
+                        txt_report_lines.append(
+                            "SondeValues - BGA PC ugL\t"
+                            f"{value} ug/L\t"
+                            f"NORMAL\t"
+                            f"{timestamp}"
+                        )
+
+                        print(
+                            "[TIMESTAMP][WQMS] "
+                            "BGA PC -> "
+                            f"{timestamp}"
+                        )
+
+                # ------------------------------------------------
+                # fDOM
+                # ------------------------------------------------
+
+                elif "fDOM" in line:
+
+                    match = re.search(
+                        r"fDOM(?:\s+RFU)?\s+(-?\d+(?:\.\d+)?)",
+                        line
+                    )
+
+                    if match:
+
+                        value = float(
+                            match.group(1)
+                        )
+
+                        wq_data[
+                            "fdom"
+                        ] = value
+
+                        txt_report_lines.append(
+                            "SondeValues - fDOM RFU\t"
+                            f"{value} RFU\t"
+                            f"NORMAL\t"
+                            f"{timestamp}"
+                        )
+
+                        print(
+                            "[TIMESTAMP][WQMS] "
+                            f"fDOM -> {timestamp}"
+                        )
 
             # =====================================================
             # SIMPAN LAPORAN TXT
@@ -674,22 +812,21 @@ def scrape_and_sync():
                 "nilaisensor.txt",
                 "w",
                 encoding="utf-8"
-            ) as f:
+            ) as file:
 
-                f.write(
+                file.write(
                     "LAPORAN NILAI SENSOR\n"
                 )
 
-                f.write(
+                file.write(
                     "=" * 70 + "\n"
                 )
 
-                f.write(
-                    "Timestamp pada laporan adalah "
-                    "timestamp asli dari Eagle.io.\n"
+                file.write(
+                    "MODE: TEST - TIDAK DIKIRIM KE DATABASE\n"
                 )
 
-                f.write(
+                file.write(
                     "=" * 70 + "\n\n"
                 )
 
@@ -697,22 +834,39 @@ def scrape_and_sync():
                     set(txt_report_lines)
                 ):
 
-                    f.write(
+                    file.write(
                         item + "\n"
                     )
 
-            # =====================================================
-            # TUTUP BROWSER
-            # =====================================================
+            print()
+            print(
+                "[INFO] File nilaisensor.txt berhasil dibuat."
+            )
 
         except Exception as e:
 
             print()
             print(
-                f"[ERROR] Terjadi kesalahan scraper: {e}"
+                "=" * 70
+            )
+
+            print(
+                "[ERROR] TERJADI KESALAHAN SCRAPER"
+            )
+
+            print(
+                "=" * 70
+            )
+
+            print(
+                str(e)
             )
 
         finally:
+
+            # =================================================
+            # TUTUP BROWSER
+            # =================================================
 
             if browser:
 
@@ -724,7 +878,7 @@ def scrape_and_sync():
                 )
 
     # ============================================================
-    # TAMPILKAN DATA HASIL SCRAPING
+    # HASIL SCRAPING
     # ============================================================
 
     print()
@@ -732,79 +886,178 @@ def scrape_and_sync():
     print("HASIL SCRAPING")
     print("=" * 70)
 
-    print()
-    print("[DEBUG] Data Device Health:")
-
-    print(
-        json.dumps(
-            device_data,
-            indent=2,
-            ensure_ascii=False
-        )
-    )
+    # ============================================================
+    # DEVICE HEALTH
+    # ============================================================
 
     print()
-    print("[DEBUG] Data WQMS:")
-
     print(
-        json.dumps(
-            wq_data,
-            indent=2,
-            ensure_ascii=False
-        )
+        "[DEBUG] Data Device Health:"
     )
 
+    if device_data:
+
+        print(
+            json.dumps(
+                device_data,
+                indent=2,
+                ensure_ascii=False
+            )
+        )
+
+    else:
+
+        print(
+            "Tidak ada data Device Health."
+        )
+
+    # ============================================================
+    # WQMS
+    # ============================================================
+
+    print()
+    print(
+        "[DEBUG] Data WQMS:"
+    )
+
+    if wq_data:
+
+        print(
+            json.dumps(
+                wq_data,
+                indent=2,
+                ensure_ascii=False
+            )
+        )
+
+    else:
+
+        print(
+            "Tidak ada data WQMS."
+        )
+
+    print()
     print("=" * 70)
 
     # ============================================================
     # VALIDASI TIMESTAMP
     # ============================================================
 
-    if device_data.get("timestamp"):
+    print()
+    print(
+        "VALIDASI TIMESTAMP"
+    )
+
+    print(
+        "-" * 70
+    )
+
+    if device_data.get(
+        "timestamp"
+    ):
 
         print(
-            "[CHECK] Timestamp Device Health : "
+            "Timestamp Device Health : "
             f"{device_data['timestamp']}"
         )
 
     else:
 
         print(
-            "[WARNING] Timestamp Device Health "
-            "tidak ditemukan."
+            "Timestamp Device Health : "
+            "TIDAK DITEMUKAN"
         )
 
-    if wq_data.get("timestamp"):
+    if wq_data.get(
+        "timestamp"
+    ):
 
         print(
-            "[CHECK] Timestamp WQMS          : "
+            "Timestamp WQMS          : "
             f"{wq_data['timestamp']}"
         )
 
     else:
 
         print(
-            "[WARNING] Timestamp WQMS "
-            "tidak ditemukan."
+            "Timestamp WQMS          : "
+            "TIDAK DITEMUKAN"
         )
 
+    print(
+        "-" * 70
+    )
+
     # ============================================================
-    # KIRIM DATA
+    # VALIDASI SALINITY
     # ============================================================
 
-    if device_data or wq_data:
+    if "salinity" in wq_data:
 
-        send_to_php_api(
-            device_data,
-            wq_data
+        print(
+            "Salinity                : "
+            f"{wq_data['salinity']}"
         )
 
     else:
 
         print(
-            "[WARNING] Tidak ada data sensor "
-            "yang valid untuk dikirim."
+            "Salinity                : "
+            "TIDAK DITEMUKAN"
         )
+
+    # ============================================================
+    # PENGIRIMAN KE DATABASE
+    # ============================================================
+    #
+    # SANGAT PENTING:
+    #
+    # TEST_MODE = True
+    #
+    # sehingga bagian ini TIDAK mengirim data.
+    # ============================================================
+
+    print()
+    print("=" * 70)
+
+    if TEST_MODE:
+
+        print(
+            "[TEST MODE] PENGIRIMAN KE DATABASE DINONAKTIFKAN"
+        )
+
+        print(
+            "[TEST MODE] Tidak ada request POST "
+            "ke PHP API."
+        )
+
+        print(
+            "[TEST MODE] Tidak ada data yang masuk "
+            "ke database."
+        )
+
+    else:
+
+        print(
+            "[PRODUCTION MODE] Mengirim data "
+            "ke PHP API..."
+        )
+
+        if device_data or wq_data:
+
+            send_to_php_api(
+                device_data,
+                wq_data
+            )
+
+        else:
+
+            print(
+                "[WARNING] Tidak ada data sensor "
+                "yang valid untuk dikirim."
+            )
+
+    print("=" * 70)
 
 
 # ================================================================
