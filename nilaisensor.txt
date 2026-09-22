@@ -7,10 +7,10 @@ Ai1 - BatteryVoltage	13.36 Volts	NORMAL	2026-09-22 08:30:00
 Ai1 - CurrentMaximum	83.0 mA	NORMAL	2026-09-22 08:30:00
 Ai1 - InternalHumidity	33.0 %	NORMAL	2026-09-22 08:30:00
 Ai1 - InternalTemperature	38.32 °C	NORMAL	2026-09-22 08:30:00
-SondeValues - BGA PC ugL	4.089 ug/L	NORMAL	2026-09-22 09:00:00
-SondeValues - Chlorophyll ugL	17.549 ug/L	NORMAL	2026-09-22 09:00:00
-SondeValues - External Temp	28.221 DegreesC	NORMAL	2026-09-22 09:00:00
-SondeValues - ODO Sat	80.292 %	NORMAL	2026-09-22 09:00:00
-SondeValues - Salinity	0.185 ppm	NORMAL	2026-09-22 09:00:00
-SondeValues - Turbidity	394.26 FNU	NORMAL	2026-09-22 09:00:00
-SondeValues - fDOM RFU	9.246 RFU	NORMAL	2026-09-22 09:00:00
+SondeValues - BGA PC ugL	3.998 ug/L	NORMAL	2026-09-22 09:15:00
+SondeValues - Chlorophyll ugL	17.579 ug/L	NORMAL	2026-09-22 09:15:00
+SondeValues - External Temp	28.604 DegreesC	NORMAL	2026-09-22 09:15:00
+SondeValues - ODO Sat	81.754 %	NORMAL	2026-09-22 09:15:00
+SondeValues - Salinity	0.185 ppm	NORMAL	2026-09-22 09:15:00
+SondeValues - Turbidity	432.959 FNU	NORMAL	2026-09-22 09:15:00
+SondeValues - fDOM RFU	9.381 RFU	NORMAL	2026-09-22 09:15:00
