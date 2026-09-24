@@ -1,0 +1,38 @@
+name: Eagle WQMS Scraper
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+
+  workflow_dispatch:
+
+jobs:
+  scrape-wqms:
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright pandas numpy
+
+      - name: Install Playwright Chromium
+        run: |
+          python -m playwright install --with-deps chromium
+
+      - name: Run Eagle V7.2 WQMS scraper
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python eagle_v7_2_github_recovery_24h.py
