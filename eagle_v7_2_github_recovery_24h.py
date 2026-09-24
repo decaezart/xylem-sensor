@@ -10,9 +10,8 @@ BASELINE:
     historical reference = validasi dataset yang sudah PASS
 
 TUJUAN:
-    Mengambil langsung 7 parameter WQMS + 4 parameter device health dari
-    Eagle.io melalui WebSocket native Playwright, menggunakan metode RAW
-    yang sudah terbukti.
+    Mengambil langsung 7 parameter WQMS dari Eagle.io melalui WebSocket
+    native Playwright, menggunakan metode RAW yang sudah terbukti.
 
 MODE:
     TEST_MODE       = True
@@ -132,7 +131,7 @@ OUTPUT_API_RESULT = OUTPUT_DIR / f"eagle_v7_2_api_result_{RUN_DATE_TAG}.txt"
 
 
 # ==============================================================================
-# 2. POINT WQMS + DEVICE HEALTH
+# 2. POINT WQMS
 # ==============================================================================
 
 TARGET_POINTS = {
@@ -143,13 +142,6 @@ TARGET_POINTS = {
     "chlorophyll": "69d9c2afde6c9145418ca78e",
     "bga_pc": "69d9c2afde6c9145418ca797",
     "fdom": "69d9c2afde6c9145418ca799",
-}
-
-DEVICE_HEALTH_POINTS = {
-    "battery_voltage": "68d0a84a3b27a910af7989b3",
-    "internal_temperature": "68d0a84a3b27a910af7989b5",
-    "internal_humidity": "68d0a84a3b27a910af7989b7",
-    "current_maximum": "68d0a84a3b27a910af7989bb",
 }
 
 PARAMETERS = [
@@ -166,18 +158,6 @@ POINT_TO_PARAMETER = {
     point_id: parameter
     for parameter, point_id in TARGET_POINTS.items()
 }
-
-DEVICE_POINT_TO_PARAMETER = {
-    point_id: parameter
-    for parameter, point_id in DEVICE_HEALTH_POINTS.items()
-}
-
-DEVICE_HEALTH_PARAMETERS = [
-    "battery_voltage",
-    "internal_temperature",
-    "internal_humidity",
-    "current_maximum",
-]
 
 EXPECTED_COLUMNS = [
     "timestamp_utc",
@@ -202,7 +182,6 @@ NATIVE_REQUEST = None
 NATIVE_REQUEST_CAPTURED = False
 
 CUSTOM_RESULTS = {}
-DEVICE_HEALTH_RESULTS = {}
 
 ALL_SENT_FRAMES = []
 ALL_RECEIVED_FRAMES = []
@@ -511,11 +490,7 @@ def find_native_request_from_frames(frames):
 
         point_id = points[0].get("id")
 
-        if point_id in POINT_TO_PARAMETER:
-            parameter = POINT_TO_PARAMETER[point_id]
-        elif point_id in DEVICE_POINT_TO_PARAMETER:
-            parameter = DEVICE_POINT_TO_PARAMETER[point_id]
-        else:
+        if point_id not in POINT_TO_PARAMETER:
             continue
 
         return {
@@ -527,12 +502,10 @@ def find_native_request_from_frames(frames):
             ),
             "request": request,
             "point_id": point_id,
-            "parameter": parameter,
+            "parameter": POINT_TO_PARAMETER[
+                point_id
+            ],
             "frame": frame,
-            "parameter_type": (
-                "wqms" if point_id in POINT_TO_PARAMETER
-                else "device_health"
-            ),
         }
 
     return None
@@ -1179,10 +1152,9 @@ async def request_parameter(
                     parsed["end_time"]
                 )
 
-                if parameter in PARAMETERS:
-                    CUSTOM_RESULTS[parameter] = parsed
-                elif parameter in DEVICE_HEALTH_PARAMETERS:
-                    DEVICE_HEALTH_RESULTS[parameter] = parsed
+                CUSTOM_RESULTS[
+                    parameter
+                ] = parsed
 
                 return parsed
 
@@ -1333,80 +1305,6 @@ def build_dataset():
     return df[
         EXPECTED_COLUMNS
     ]
-
-
-# =============================================================================
-# 19A. BUILD DEVICE HEALTH DATASET
-# =============================================================================
-
-def build_device_health_dataset():
-    frames = []
-
-    for parameter in DEVICE_HEALTH_PARAMETERS:
-        if parameter not in DEVICE_HEALTH_RESULTS:
-            raise RuntimeError(
-                f"{parameter}: response device health tidak tersedia."
-            )
-
-        frames.append(
-            normalize_parameter(
-                DEVICE_HEALTH_RESULTS[parameter]
-            )
-        )
-
-    # Pertahankan timestamp RAW masing-masing point Eagle.
-    # Tidak ada interpolasi, fill, atau pemaksaan timestamp WQMS.
-    df = frames[0]
-
-    for other in frames[1:]:
-        df = df.merge(
-            other,
-            on=["timestamp_millis", "timestamp_utc"],
-            how="outer",
-            validate="one_to_one",
-        )
-
-    df = df.sort_values(
-        "timestamp_millis"
-    ).reset_index(drop=True)
-
-    df["timestamp_utc"] = pd.to_datetime(
-        df["timestamp_utc"],
-        utc=True,
-    )
-
-    df["timestamp_millis"] = df["timestamp_utc"].map(
-        lambda x: x.value // 1_000_000
-    )
-
-    # Struktur tabel/API device health saat ini adalah satu baris berisi
-    # empat parameter. Karena itu, jangan pernah mengisi parameter yang
-    # timestamp-nya tidak tersedia. Jika timestamp empat point berbeda,
-    # hentikan proses dengan jelas daripada membuat data palsu/NaN.
-    incomplete = int(
-        df[DEVICE_HEALTH_PARAMETERS]
-        .isna()
-        .any(axis=1)
-        .sum()
-    )
-
-    if incomplete:
-        raise RuntimeError(
-            "Timestamp device health antar parameter tidak sejajar: "
-            f"{incomplete} baris tidak memiliki keempat parameter. "
-            "Tidak ada interpolasi atau pemaksaan timestamp. "
-            "Struktur API/database device health saat ini membutuhkan "
-            "empat parameter dalam satu timestamp."
-        )
-
-    return df[[
-        "timestamp_utc",
-        "timestamp_millis",
-        "battery_voltage",
-        "internal_temperature",
-        "internal_humidity",
-        "current_maximum",
-    ]]
 
 
 # ==============================================================================
@@ -1832,111 +1730,6 @@ def post_wqms_to_api(df):
     }
 
 
-# =============================================================================
-# 22A. API POST DEVICE HEALTH
-# =============================================================================
-
-def post_device_health_to_api(df):
-    section("V7.2 - POST DEVICE HEALTH KE API")
-
-    if df.empty:
-        raise RuntimeError("Dataset device health kosong.")
-
-    send_df = df.copy() if API_SEND_ALL else df.head(API_TEST_LIMIT).copy()
-    log("API URL        :", API_URL)
-    log("Jumlah record  :", len(send_df))
-
-    results = []
-
-    for number, (_, row) in enumerate(send_df.iterrows(), 1):
-        ts = pd.to_datetime(row["timestamp_utc"], utc=True)
-        timestamp_api = ts.strftime("%Y-%m-%d %H:%M:%S")
-
-        payload = {
-            "device_health": {
-                "battery_voltage": float(row["battery_voltage"]),
-                "current_maximum": float(row["current_maximum"]),
-                "internal_humidity": float(row["internal_humidity"]),
-                "internal_temperature": float(row["internal_temperature"]),
-                "status": "OK",
-                "timestamp": timestamp_api,
-            }
-        }
-
-        body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-
-        log("-" * 70)
-        log("POST device health record :", number)
-        log("timestamp_millis :", int(row["timestamp_millis"]))
-        log("timestamp Eagle  :", ts.isoformat())
-        log("timestamp API    :", timestamp_api)
-
-        request = Request(
-            API_URL,
-            data=body,
-            method="POST",
-            headers={
-                "Content-Type": "application/json",
-                "Accept": "application/json,text/plain,*/*",
-                "User-Agent": "Eagle-WQMS-Scraper/7.2",
-            },
-        )
-
-        http_status = None
-        response_text = ""
-
-        try:
-            with urlopen(request, timeout=API_TIMEOUT_SECONDS) as response:
-                http_status = response.getcode()
-                response_text = response.read().decode("utf-8", errors="replace").strip()
-        except HTTPError as exc:
-            http_status = exc.code
-            try:
-                response_text = exc.read().decode("utf-8", errors="replace").strip()
-            except Exception:
-                response_text = str(exc)
-        except URLError as exc:
-            response_text = f"URLError: {exc.reason}"
-        except Exception as exc:
-            response_text = f"{type(exc).__name__}: {exc}"
-
-        success = (
-            http_status is not None
-            and 200 <= http_status < 300
-            and (
-                "SUCCESS: Data berhasil disimpan" in response_text
-                or "DUPLICATE: Timestamp sudah ada" in response_text
-            )
-        )
-
-        log("HTTP status     :", http_status)
-        log("Response API    :", response_text)
-        log("HASIL           :", "SUCCESS" if success else "FAILED")
-
-        results.append({
-            "record": number,
-            "timestamp_millis": int(row["timestamp_millis"]),
-            "timestamp_api": timestamp_api,
-            "http_status": http_status,
-            "response": response_text,
-            "success": success,
-        })
-
-    attempted = len(results)
-    success_count = sum(1 for x in results if x["success"])
-    failed_count = attempted - success_count
-
-    section("HASIL POST DEVICE HEALTH")
-    log("Attempted :", attempted)
-    log("Success   :", success_count)
-    log("Failed    :", failed_count)
-
-    if failed_count:
-        raise RuntimeError(f"API Device Health gagal: {failed_count}/{attempted} record.")
-
-    return {"attempted": attempted, "success": success_count, "failed": failed_count}
-
-
 # ==============================================================================
 # 23. MAIN
 # ==============================================================================
@@ -2153,32 +1946,6 @@ async def main():
                 )
 
             # ------------------------------------------------------------------
-            # Custom 4 parameter DEVICE HEALTH
-            # ------------------------------------------------------------------
-
-            section("MENGAMBIL DATA DEVICE HEALTH")
-
-            for parameter in DEVICE_HEALTH_PARAMETERS:
-                point_id = DEVICE_HEALTH_POINTS[parameter]
-
-                result = await request_parameter(
-                    page=page,
-                    native_info=native,
-                    parameter=parameter,
-                    point_id=point_id,
-                    custom_id=custom_id,
-                )
-
-                if result is None:
-                    raise RuntimeError(
-                        f"Pengambilan device health {parameter} gagal."
-                    )
-
-                custom_id += 1
-
-                await page.wait_for_timeout(REQUEST_DELAY_MS)
-
-            # ------------------------------------------------------------------
             # Dataset
             # ------------------------------------------------------------------
 
@@ -2280,7 +2047,6 @@ async def main():
             # ------------------------------------------------------------------
 
             api_result = None
-            device_health_api_result = None
 
             if API_POST:
 
@@ -2292,17 +2058,6 @@ async def main():
 
                 api_result = post_wqms_to_api(
                     df
-                )
-
-                device_health_df = build_device_health_dataset()
-
-                log(
-                    "Jumlah record device health :",
-                    len(device_health_df)
-                )
-
-                device_health_api_result = post_device_health_to_api(
-                    device_health_df
                 )
 
             section(
@@ -2346,20 +2101,6 @@ async def main():
                 log(
                     "API failed      :",
                     api_result["failed"]
-                )
-
-            if device_health_api_result is not None:
-                log(
-                    "Logger API attempted :",
-                    device_health_api_result["attempted"]
-                )
-                log(
-                    "Logger API success   :",
-                    device_health_api_result["success"]
-                )
-                log(
-                    "Logger API failed    :",
-                    device_health_api_result["failed"]
                 )
 
     except Exception as exc:
