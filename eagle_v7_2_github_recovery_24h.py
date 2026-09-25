@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 ==============================================================================
-EAGLE V7.2 - WQMS OPERASIONAL HARIAN
-LOCAL WINDOWS / TEST MODE
+EAGLE V7.4 API TEST - WQMS + DEVICE HEALTH + WEATHER + PRESSURE + DEPTH
+GITHUB ACTIONS / OPERATIONAL MODE
 ==============================================================================
 
 BASELINE:
@@ -10,14 +10,16 @@ BASELINE:
     historical reference = validasi dataset yang sudah PASS
 
 TUJUAN:
-    Mengambil langsung 7 parameter WQMS + 4 parameter device health dari
+    Mengambil langsung 7 parameter WQMS + 4 parameter device health + 2 parameter weather dari
     Eagle.io melalui WebSocket native Playwright, menggunakan metode RAW
     yang sudah terbukti.
 
 MODE:
     TEST_MODE       = True
-    API_POST        = False
+    API_POST        = True
     DATABASE_INSERT = False
+
+    RANGE           = rolling 24 jam otomatis (Asia/Makassar)
 
 TIDAK DILAKUKAN:
     - interpolasi
@@ -88,16 +90,36 @@ NODE_ID = "69ca1895c3d4343ae57b8ae1"
 # END bersifat exclusive. Overlap ini berfungsi sebagai recovery window.
 RANGE_TIMEZONE = "Asia/Makassar"
 LOCAL_TZ = ZoneInfo(RANGE_TIMEZONE)
-NOW_LOCAL = datetime.now(LOCAL_TZ)
-RANGE_END_EXCLUSIVE_LOCAL_DT = NOW_LOCAL
+
+# ==========================================================================
+# RANGE OPERASIONAL OTOMATIS - ROLLING 24 JAM
+#
+# Setiap eksekusi mengambil 24 jam terakhir berdasarkan waktu WITA.
+# Contoh jika job berjalan 25-09-2026 10:17 WITA:
+#   START = 24-09-2026 10:17 WITA
+#   END   = 25-09-2026 10:17 WITA
+#
+# END bersifat EXCLUSIVE.
+# Overlap 24 jam ini berfungsi sebagai recovery window: record yang sudah
+# pernah dikirim akan di-UPSERT berdasarkan timestamp, sedangkan record
+# yang terlambat masuk ke Eagle akan tertangkap pada run berikutnya.
+# ==========================================================================
+RANGE_END_EXCLUSIVE_LOCAL_DT = datetime.now(LOCAL_TZ)
 RANGE_START_LOCAL_DT = RANGE_END_EXCLUSIVE_LOCAL_DT - timedelta(hours=24)
+
+if RANGE_END_EXCLUSIVE_LOCAL_DT <= RANGE_START_LOCAL_DT:
+    raise RuntimeError(
+        "RANGE_END_EXCLUSIVE_LOCAL_DT harus lebih besar dari RANGE_START_LOCAL_DT."
+    )
+
 RANGE_START_LOCAL = RANGE_START_LOCAL_DT.strftime("%Y-%m-%d %H:%M:%S")
 RANGE_END_EXCLUSIVE_LOCAL = RANGE_END_EXCLUSIVE_LOCAL_DT.strftime("%Y-%m-%d %H:%M:%S")
 RANGE_START_UTC = RANGE_START_LOCAL_DT.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 RANGE_END_EXCLUSIVE_UTC = RANGE_END_EXCLUSIVE_LOCAL_DT.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-RUN_DATE_TAG = RANGE_END_EXCLUSIVE_LOCAL_DT.strftime("%Y%m%d_%H%M")
-if (RANGE_END_EXCLUSIVE_LOCAL_DT - RANGE_START_LOCAL_DT).total_seconds() != 86400:
-    raise RuntimeError("Recovery window harus tepat 24 jam.")
+RUN_DATE_TAG = (
+    f"{RANGE_START_LOCAL_DT.strftime('%Y%m%d_%H%M%S')}"
+    f"_{RANGE_END_EXCLUSIVE_LOCAL_DT.strftime('%Y%m%d_%H%M%S')}"
+)
 
 
 HEADLESS = True
@@ -117,18 +139,18 @@ MAX_RETRIES = 2
 
 CUSTOM_ID_START = 18501
 
-# GitHub Actions: hasil tidak disimpan sebagai file permanen/repository.
-OUTPUT_DIR = Path("/tmp/eagle_v72")
-OUTPUT_CSV = OUTPUT_DIR / f"eagle_v7_2_wqms_{RUN_DATE_TAG}.csv"
-OUTPUT_REPORT = OUTPUT_DIR / f"eagle_v7_2_report_{RUN_DATE_TAG}.txt"
-OUTPUT_RAW = OUTPUT_DIR / f"eagle_v7_2_raw_{RUN_DATE_TAG}.txt"
-OUTPUT_CRASH = OUTPUT_DIR / f"eagle_v7_2_crash_{RUN_DATE_TAG}.log"
+# GitHub Actions: hasil hanya digunakan selama job berjalan; tidak disimpan ke repository.
+OUTPUT_DIR = Path("/tmp/eagle_v74")
+OUTPUT_CSV = OUTPUT_DIR / f"eagle_v7_4_wqms_{RUN_DATE_TAG}.csv"
+OUTPUT_REPORT = OUTPUT_DIR / f"eagle_v7_4_report_{RUN_DATE_TAG}.txt"
+OUTPUT_RAW = OUTPUT_DIR / f"eagle_v7_4_raw_{RUN_DATE_TAG}.txt"
+OUTPUT_CRASH = OUTPUT_DIR / f"eagle_v7_4_crash_{RUN_DATE_TAG}.log"
 
 API_URL = "https://telemetri-bbws-pomjen.com/KA/api_sensor_xylem.php"
 API_SEND_ALL = True
 API_TEST_LIMIT = None
 API_TIMEOUT_SECONDS = 30
-OUTPUT_API_RESULT = OUTPUT_DIR / f"eagle_v7_2_api_result_{RUN_DATE_TAG}.txt"
+OUTPUT_API_RESULT = OUTPUT_DIR / f"eagle_v7_4_api_result_{RUN_DATE_TAG}.txt"
 
 
 # ==============================================================================
@@ -150,6 +172,48 @@ DEVICE_HEALTH_POINTS = {
     "internal_temperature": "68d0a84a3b27a910af7989b5",
     "internal_humidity": "68d0a84a3b27a910af7989b7",
     "current_maximum": "68d0a84a3b27a910af7989bb",
+}
+
+WEATHER_POINTS = {
+    "temp_ambient": "69d9c2afde6c9145418ca7af",
+    "humidity_ambient": "69d9c2afde6c9145418ca7b0",
+}
+
+PRESSURE_POINTS = {
+    "barometric_pressure": "6a878f41138fdb53b30e39ec",
+}
+
+DEPTH_POINTS = {
+    "depth": "6a8708b4138fdb53b3fc365e",
+}
+
+WEATHER_PARAMETERS = [
+    "temp_ambient",
+    "humidity_ambient",
+]
+
+WEATHER_POINT_TO_PARAMETER = {
+    point_id: parameter
+    for parameter, point_id in WEATHER_POINTS.items()
+}
+
+PRESSURE_POINT_TO_PARAMETER = {
+    point_id: parameter
+    for parameter, point_id in PRESSURE_POINTS.items()
+}
+
+DEPTH_POINT_TO_PARAMETER = {
+    point_id: parameter
+    for parameter, point_id in DEPTH_POINTS.items()
+}
+
+AUX_PARAMETERS = [
+    "barometric_pressure",
+    "depth",
+]
+AUX_POINT_TO_PARAMETER = {
+    **PRESSURE_POINT_TO_PARAMETER,
+    **DEPTH_POINT_TO_PARAMETER,
 }
 
 PARAMETERS = [
@@ -203,6 +267,8 @@ NATIVE_REQUEST_CAPTURED = False
 
 CUSTOM_RESULTS = {}
 DEVICE_HEALTH_RESULTS = {}
+WEATHER_RESULTS = {}
+AUX_RESULTS = {}
 
 ALL_SENT_FRAMES = []
 ALL_RECEIVED_FRAMES = []
@@ -515,6 +581,10 @@ def find_native_request_from_frames(frames):
             parameter = POINT_TO_PARAMETER[point_id]
         elif point_id in DEVICE_POINT_TO_PARAMETER:
             parameter = DEVICE_POINT_TO_PARAMETER[point_id]
+        elif point_id in WEATHER_POINT_TO_PARAMETER:
+            parameter = WEATHER_POINT_TO_PARAMETER[point_id]
+        elif point_id in AUX_POINT_TO_PARAMETER:
+            parameter = AUX_POINT_TO_PARAMETER[point_id]
         else:
             continue
 
@@ -531,7 +601,9 @@ def find_native_request_from_frames(frames):
             "frame": frame,
             "parameter_type": (
                 "wqms" if point_id in POINT_TO_PARAMETER
-                else "device_health"
+                else "device_health" if point_id in DEVICE_POINT_TO_PARAMETER
+                else "weather" if point_id in WEATHER_POINT_TO_PARAMETER
+                else "aux"
             ),
         }
 
@@ -1183,6 +1255,10 @@ async def request_parameter(
                     CUSTOM_RESULTS[parameter] = parsed
                 elif parameter in DEVICE_HEALTH_PARAMETERS:
                     DEVICE_HEALTH_RESULTS[parameter] = parsed
+                elif parameter in WEATHER_PARAMETERS:
+                    WEATHER_RESULTS[parameter] = parsed
+                elif parameter in AUX_PARAMETERS:
+                    AUX_RESULTS[parameter] = parsed
 
                 return parsed
 
@@ -1407,6 +1483,206 @@ def build_device_health_dataset():
         "internal_humidity",
         "current_maximum",
     ]]
+
+
+# ==============================================================================
+# 19B. BUILD WEATHER DATASET
+# ==============================================================================
+
+def build_weather_dataset():
+    frames = []
+
+    for parameter in WEATHER_PARAMETERS:
+        if parameter not in WEATHER_RESULTS:
+            raise RuntimeError(
+                f"{parameter}: response weather tidak tersedia."
+            )
+
+        frames.append(normalize_parameter(WEATHER_RESULTS[parameter]))
+
+    # Weather tidak dipaksa sejajar dengan WQMS/device health.
+    # Hanya timestamp yang benar-benar tersedia dari Eagle dipertahankan.
+    df = frames[0]
+
+    for other in frames[1:]:
+        df = df.merge(
+            other,
+            on=["timestamp_millis", "timestamp_utc"],
+            how="outer",
+            validate="one_to_one",
+        )
+
+    df = df.sort_values("timestamp_millis").reset_index(drop=True)
+    df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True)
+    df["timestamp_millis"] = df["timestamp_utc"].map(lambda x: x.value // 1_000_000)
+
+    return df[[
+        "timestamp_utc",
+        "timestamp_millis",
+        "temp_ambient",
+        "humidity_ambient",
+    ]]
+
+
+def validate_weather_dataset(df):
+    section("VALIDASI WEATHER DATA V7.3")
+    errors = []
+
+    expected = [
+        "timestamp_utc",
+        "timestamp_millis",
+        "temp_ambient",
+        "humidity_ambient",
+    ]
+
+    log("Jumlah baris :", len(df))
+    log("Kolom        :", list(df.columns))
+
+    if list(df.columns) != expected:
+        errors.append("Kolom weather tidak sesuai.")
+
+    if df.empty:
+        errors.append("Dataset weather kosong.")
+        log("Weather STATUS : FAIL")
+        return "FAIL", errors
+
+    ts = pd.to_datetime(df["timestamp_utc"], utc=True, errors="coerce")
+    invalid = int(ts.isna().sum())
+    duplicate = int(df["timestamp_millis"].duplicated().sum())
+    chronological = bool(ts.is_monotonic_increasing)
+
+    log("Timestamp invalid   :", invalid)
+    log("Chronological       :", chronological)
+    log("Duplicate timestamp :", duplicate)
+
+    if invalid:
+        errors.append("Timestamp weather invalid.")
+    if not chronological:
+        errors.append("Timestamp weather tidak chronological.")
+    if duplicate:
+        errors.append("Duplicate timestamp weather.")
+
+    calculated = ts.map(lambda x: x.value // 1_000_000 if pd.notna(x) else -1)
+    millis_ok = bool((calculated.to_numpy() == df["timestamp_millis"].to_numpy()).all())
+    log("timestamp_millis match :", millis_ok)
+    if not millis_ok:
+        errors.append("timestamp_millis weather mismatch.")
+
+    # Weather tidak dipaksa memiliki timestamp yang sama antar-parameter.
+    # Karena itu NULL akibat outer-merge bukan dianggap error. Yang wajib adalah
+    # setiap point memiliki record validnya sendiri dan tidak ada nilai Infinity.
+    for parameter in WEATHER_PARAMETERS:
+        numeric = pd.to_numeric(df[parameter], errors="coerce")
+        valid = int(numeric.notna().sum())
+        null = int(numeric.isna().sum())
+        infinity = int(np.isinf(numeric.fillna(0).to_numpy()).sum())
+        log(f"{parameter:20s} valid={valid} NULL={null} Infinity={infinity}")
+        if valid == 0:
+            errors.append(f"{parameter}: tidak ada record valid.")
+        if infinity:
+            errors.append(f"{parameter}: Infinity.")
+
+    status = "PASS" if not errors else "FAIL"
+    log("Interpolasi      : TIDAK")
+    log("Smoothing        : TIDAK")
+    log("Pengisian gap    : TIDAK")
+    log("Pembulatan waktu : TIDAK")
+    log("Perubahan nilai  : TIDAK")
+    log("Timestamp sumber : EAGLE")
+    log("Weather STATUS   :", status)
+
+    for error in errors:
+        log("ERROR:", error)
+
+    return status, errors
+
+
+# ==============================================================================
+# 19C. BUILD AUXILIARY DATASET - PRESSURE + DEPTH
+# ==============================================================================
+
+def build_aux_dataset():
+    frames = []
+
+    for parameter in AUX_PARAMETERS:
+        if parameter not in AUX_RESULTS:
+            raise RuntimeError(
+                f"{parameter}: response auxiliary tidak tersedia."
+            )
+        frames.append(normalize_parameter(AUX_RESULTS[parameter]))
+
+    df = frames[0]
+
+    for other in frames[1:]:
+        df = df.merge(
+            other,
+            on=["timestamp_millis", "timestamp_utc"],
+            how="outer",
+            validate="one_to_one",
+        )
+
+    df = df.sort_values("timestamp_millis").reset_index(drop=True)
+    df["timestamp_utc"] = pd.to_datetime(df["timestamp_utc"], utc=True)
+    df["timestamp_millis"] = df["timestamp_utc"].map(lambda x: x.value // 1_000_000)
+
+    return df[["timestamp_utc", "timestamp_millis", "barometric_pressure", "depth"]]
+
+
+def validate_aux_dataset(df):
+    section("VALIDASI PRESSURE + DEPTH V7.4")
+    errors = []
+    expected = ["timestamp_utc", "timestamp_millis", "barometric_pressure", "depth"]
+
+    log("Jumlah baris :", len(df))
+    log("Kolom        :", list(df.columns))
+
+    if list(df.columns) != expected:
+        errors.append("Kolom pressure/depth tidak sesuai.")
+    if df.empty:
+        errors.append("Dataset pressure/depth kosong.")
+        log("Pressure + Depth STATUS : FAIL")
+        return "FAIL", errors
+
+    ts = pd.to_datetime(df["timestamp_utc"], utc=True, errors="coerce")
+    invalid = int(ts.isna().sum())
+    duplicate = int(df["timestamp_millis"].duplicated().sum())
+    chronological = bool(ts.is_monotonic_increasing)
+    log("Timestamp invalid   :", invalid)
+    log("Chronological       :", chronological)
+    log("Duplicate timestamp :", duplicate)
+
+    if invalid: errors.append("Timestamp auxiliary invalid.")
+    if not chronological: errors.append("Timestamp auxiliary tidak chronological.")
+    if duplicate: errors.append("Duplicate timestamp auxiliary.")
+
+    calculated = ts.map(lambda x: x.value // 1_000_000 if pd.notna(x) else -1)
+    millis_ok = bool((calculated.to_numpy() == df["timestamp_millis"].to_numpy()).all())
+    log("timestamp_millis match :", millis_ok)
+    if not millis_ok: errors.append("timestamp_millis auxiliary mismatch.")
+
+    # Pressure memang lebih jarang daripada Depth. Tidak dipaksa sejajar.
+    for parameter in AUX_PARAMETERS:
+        numeric = pd.to_numeric(df[parameter], errors="coerce")
+        valid = int(numeric.notna().sum())
+        null = int(numeric.isna().sum())
+        infinity = int(np.isinf(numeric.fillna(0).to_numpy()).sum())
+        log(f"{parameter:20s} valid={valid} NULL={null} Infinity={infinity}")
+        if valid == 0: errors.append(f"{parameter}: tidak ada record valid.")
+        if infinity: errors.append(f"{parameter}: Infinity.")
+        if valid:
+            log(f"{parameter:20s} min={numeric.min():.6f} max={numeric.max():.6f} mean={numeric.mean():.6f} median={numeric.median():.6f}")
+
+    log("Interpolasi      : TIDAK")
+    log("Smoothing        : TIDAK")
+    log("Pengisian gap    : TIDAK")
+    log("Pembulatan waktu : TIDAK")
+    log("Perubahan nilai  : TIDAK")
+    log("Timestamp sumber : EAGLE")
+
+    status = "PASS" if not errors else "FAIL"
+    log("Pressure + Depth STATUS :", status)
+    for error in errors: log("ERROR:", error)
+    return status, errors
 
 
 # ==============================================================================
@@ -1698,7 +1974,7 @@ def save_raw_traffic():
 # ==============================================================================
 
 def post_wqms_to_api(df):
-    section("V7.2 - POST WQMS KE API")
+    section("V7.4 - POST WQMS KE API")
 
     if df.empty:
         raise RuntimeError("Dataset WQMS kosong.")
@@ -1795,6 +2071,8 @@ def post_wqms_to_api(df):
             and (
                 "SUCCESS: Data berhasil disimpan" in response_text
                 or "DUPLICATE: Timestamp sudah ada" in response_text
+                or "INSERT: Data berhasil disimpan" in response_text
+                or "UPDATE: Data berhasil diperbarui" in response_text
             )
         )
 
@@ -1815,7 +2093,7 @@ def post_wqms_to_api(df):
     success_count = sum(1 for x in results if x["success"])
     failed_count = attempted - success_count
 
-    section("HASIL POST API V7")
+    section("HASIL POST API V7.4")
     log("Attempted :", attempted)
     log("Success   :", success_count)
     log("Failed    :", failed_count)
@@ -1833,11 +2111,173 @@ def post_wqms_to_api(df):
 
 
 # =============================================================================
-# 22A. API POST DEVICE HEALTH
+# 22A. API POST WQMS + WEATHER + PRESSURE + DEPTH
+# =============================================================================
+
+def post_combined_wqms_to_api(df, weather_df, aux_df):
+    section("V7.4 - POST 11 PARAMETER KE API")
+
+    if df.empty:
+        raise RuntimeError("Dataset WQMS kosong.")
+    if weather_df.empty:
+        raise RuntimeError("Dataset Weather kosong.")
+    if aux_df.empty:
+        raise RuntimeError("Dataset Pressure/Depth kosong.")
+
+    send_df = df.copy() if API_SEND_ALL else df.head(API_TEST_LIMIT).copy()
+
+    # Lookup berdasarkan timestamp_millis.
+    weather_lookup = weather_df.set_index("timestamp_millis").to_dict("index")
+    aux_lookup = aux_df.set_index("timestamp_millis").to_dict("index")
+
+    log("API URL        :", API_URL)
+    log("API_SEND_ALL   :", API_SEND_ALL)
+    log("API_TEST_LIMIT :", API_TEST_LIMIT, "(diabaikan jika API_SEND_ALL=True)")
+    log("Jumlah WQMS record POST :", len(send_df))
+    log("Payload        : 7 WQMS + 2 Weather + Pressure + Depth")
+    log("Timestamp API  : UTC sumber Eagle")
+
+    results = []
+
+    for number, (_, row) in enumerate(send_df.iterrows(), 1):
+        timestamp_millis = int(row["timestamp_millis"])
+        ts = pd.to_datetime(row["timestamp_utc"], utc=True)
+        timestamp_api = ts.strftime("%Y-%m-%d %H:%M:%S")
+
+        weather = weather_lookup.get(timestamp_millis, {})
+        aux = aux_lookup.get(timestamp_millis, {})
+
+        def nullable_float(value):
+            if value is None:
+                return None
+            try:
+                value = float(value)
+            except (TypeError, ValueError):
+                return None
+            if not math.isfinite(value):
+                return None
+            return value
+
+        temp_ambient = nullable_float(weather.get("temp_ambient"))
+        humidity_ambient = nullable_float(weather.get("humidity_ambient"))
+        barometric_pressure = nullable_float(aux.get("barometric_pressure"))
+        depth = nullable_float(aux.get("depth"))
+
+        payload = {
+            "wq_ms": {
+                "bga_pc": float(row["bga_pc"]),
+                "chlorophyll": float(row["chlorophyll"]),
+                "external_temp": float(row["external_temp"]),
+                "odo_sat": float(row["odo_sat"]),
+                "salinity": float(row["salinity"]),
+                "turbidity": float(row["turbidity"]),
+                "fdom": float(row["fdom"]),
+                "temp_ambient": temp_ambient,
+                "humidity_ambient": humidity_ambient,
+                "barometric_pressure": barometric_pressure,
+                "depth": depth,
+                "status": "OK",
+                "timestamp": timestamp_api,
+            }
+        }
+
+        body = json.dumps(
+            payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+
+        log("-" * 70)
+        log("POST record      :", number, "/", len(send_df))
+        log("timestamp_millis :", timestamp_millis)
+        log("timestamp Eagle  :", ts.isoformat())
+        log("timestamp API    :", timestamp_api)
+        log("temp_ambient     :", temp_ambient)
+        log("humidity_ambient :", humidity_ambient)
+        log("barometric_pressure :", barometric_pressure)
+        log("depth            :", depth)
+
+        request = Request(
+            API_URL,
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json,text/plain,*/*",
+                "User-Agent": "Eagle-WQMS-Scraper/7.4-API",
+            },
+        )
+
+        http_status = None
+        response_text = ""
+
+        try:
+            with urlopen(request, timeout=API_TIMEOUT_SECONDS) as response:
+                http_status = response.getcode()
+                response_text = response.read().decode("utf-8", errors="replace").strip()
+        except HTTPError as exc:
+            http_status = exc.code
+            try:
+                response_text = exc.read().decode("utf-8", errors="replace").strip()
+            except Exception:
+                response_text = str(exc)
+        except URLError as exc:
+            response_text = f"URLError: {exc.reason}"
+        except Exception as exc:
+            response_text = f"{type(exc).__name__}: {exc}"
+
+        success = (
+            http_status is not None
+            and 200 <= http_status < 300
+            and (
+                "SUCCESS: Data berhasil disimpan" in response_text
+                or "DUPLICATE: Timestamp sudah ada" in response_text
+                or "INSERT: Data berhasil disimpan" in response_text
+                or "UPDATE: Data berhasil diperbarui" in response_text
+            )
+        )
+
+        log("HTTP status     :", http_status)
+        log("Response API    :", response_text)
+        log("HASIL           :", "SUCCESS" if success else "FAILED")
+
+        results.append({
+            "record": number,
+            "timestamp_millis": timestamp_millis,
+            "timestamp_api": timestamp_api,
+            "http_status": http_status,
+            "response": response_text,
+            "success": success,
+        })
+
+    attempted = len(results)
+    success_count = sum(1 for x in results if x["success"])
+    failed_count = attempted - success_count
+
+    section("HASIL POST 11 PARAMETER")
+    log("Attempted :", attempted)
+    log("Success   :", success_count)
+    log("Failed    :", failed_count)
+
+    if failed_count:
+        raise RuntimeError(
+            f"API POST 11 parameter gagal: {failed_count}/{attempted} record."
+        )
+
+    return {
+        "attempted": attempted,
+        "success": success_count,
+        "failed": failed_count,
+    }
+
+
+# =============================================================================
+# 22B. API POST DEVICE HEALTH
 # =============================================================================
 
 def post_device_health_to_api(df):
-    section("V7.2 - POST DEVICE HEALTH KE API")
+    section("V7.4 - POST DEVICE HEALTH KE API")
 
     if df.empty:
         raise RuntimeError("Dataset device health kosong.")
@@ -1906,6 +2346,8 @@ def post_device_health_to_api(df):
             and (
                 "SUCCESS: Data berhasil disimpan" in response_text
                 or "DUPLICATE: Timestamp sudah ada" in response_text
+                or "INSERT: Data berhasil disimpan" in response_text
+                or "UPDATE: Data berhasil diperbarui" in response_text
             )
         )
 
@@ -1926,7 +2368,7 @@ def post_device_health_to_api(df):
     success_count = sum(1 for x in results if x["success"])
     failed_count = attempted - success_count
 
-    section("HASIL POST DEVICE HEALTH")
+    section("HASIL POST DEVICE HEALTH V7.4")
     log("Attempted :", attempted)
     log("Success   :", success_count)
     log("Failed    :", failed_count)
@@ -1946,7 +2388,7 @@ async def main():
     global CURRENT_PAGE
 
     section(
-        "EAGLE V7.2 - WQMS OPERASIONAL HARIAN"
+        "EAGLE V7.4 - WQMS + DEVICE HEALTH + WEATHER + PRESSURE + DEPTH"
     )
 
     log(
@@ -2179,6 +2621,56 @@ async def main():
                 await page.wait_for_timeout(REQUEST_DELAY_MS)
 
             # ------------------------------------------------------------------
+            # Custom 2 parameter WEATHER
+            # ------------------------------------------------------------------
+
+            section("MENGAMBIL DATA WEATHER")
+
+            for parameter in WEATHER_PARAMETERS:
+                point_id = WEATHER_POINTS[parameter]
+
+                result = await request_parameter(
+                    page=page,
+                    native_info=native,
+                    parameter=parameter,
+                    point_id=point_id,
+                    custom_id=custom_id,
+                )
+
+                if result is None:
+                    raise RuntimeError(
+                        f"Pengambilan weather {parameter} gagal."
+                    )
+
+                custom_id += 1
+                await page.wait_for_timeout(REQUEST_DELAY_MS)
+
+            # ------------------------------------------------------------------
+            # Custom PRESSURE + DEPTH
+            # ------------------------------------------------------------------
+
+            section("MENGAMBIL DATA PRESSURE + DEPTH")
+
+            for parameter in AUX_PARAMETERS:
+                point_id = PRESSURE_POINTS[parameter] if parameter in PRESSURE_POINTS else DEPTH_POINTS[parameter]
+
+                result = await request_parameter(
+                    page=page,
+                    native_info=native,
+                    parameter=parameter,
+                    point_id=point_id,
+                    custom_id=custom_id,
+                )
+
+                if result is None:
+                    raise RuntimeError(
+                        f"Pengambilan pressure/depth {parameter} gagal."
+                    )
+
+                custom_id += 1
+                await page.wait_for_timeout(REQUEST_DELAY_MS)
+
+            # ------------------------------------------------------------------
             # Dataset
             # ------------------------------------------------------------------
 
@@ -2275,8 +2767,55 @@ async def main():
             )
 
             # ------------------------------------------------------------------
+            # WEATHER DATASET + VALIDATION
+            # ------------------------------------------------------------------
+
+            weather_df = build_weather_dataset()
+
+            weather_start_dt = pd.Timestamp(RANGE_START_UTC)
+            weather_end_dt = pd.Timestamp(RANGE_END_EXCLUSIVE_UTC)
+            weather_outside = (
+                (weather_df["timestamp_utc"] < weather_start_dt)
+                | (weather_df["timestamp_utc"] >= weather_end_dt)
+            )
+            weather_outside_count = int(weather_outside.sum())
+            log("Weather record di luar range sebelum filter :", weather_outside_count)
+
+            if weather_outside_count:
+                weather_df = weather_df.loc[~weather_outside].copy().reset_index(drop=True)
+
+            weather_validation = validate_weather_dataset(weather_df)
+
+            log("Weather record final :", len(weather_df))
+            if len(weather_df):
+                log("Weather pertama :", weather_df["timestamp_utc"].iloc[0])
+                log("Weather terakhir :", weather_df["timestamp_utc"].iloc[-1])
+
+            # ------------------------------------------------------------------
+            # PRESSURE + DEPTH DATASET + VALIDATION
+            # ------------------------------------------------------------------
+
+            aux_df = build_aux_dataset()
+            aux_start_dt = pd.Timestamp(RANGE_START_UTC)
+            aux_end_dt = pd.Timestamp(RANGE_END_EXCLUSIVE_UTC)
+            aux_outside = (
+                (aux_df["timestamp_utc"] < aux_start_dt)
+                | (aux_df["timestamp_utc"] >= aux_end_dt)
+            )
+            aux_outside_count = int(aux_outside.sum())
+            log("Pressure/Depth record di luar range sebelum filter :", aux_outside_count)
+
+            if aux_outside_count:
+                aux_df = aux_df.loc[~aux_outside].copy().reset_index(drop=True)
+
+            aux_validation = validate_aux_dataset(aux_df)
+            log("Pressure/Depth record final :", len(aux_df))
+
+            # ------------------------------------------------------------------
             # API POST
-            # API baru dijalankan setelah scraper historical baseline dan validasi selesai.
+            # API existing tetap hanya untuk WQMS + device health.
+            # Weather belum dikirim ke API pada V7.3 agar endpoint PHP yang
+            # sudah PASS tidak diubah sebelum struktur tabel/API weather disepakati.
             # ------------------------------------------------------------------
 
             api_result = None
@@ -2286,12 +2825,18 @@ async def main():
 
                 if validation[0] != "PASS":
                     raise RuntimeError(
-                        "API POST dibatalkan karena dataset "
-                        "tidak lolos validasi."
+                        "API POST dibatalkan karena dataset WQMS tidak lolos validasi."
                     )
 
-                api_result = post_wqms_to_api(
-                    df
+                if weather_validation[0] != "PASS":
+                    raise RuntimeError(
+                        "API POST dibatalkan karena dataset weather tidak lolos validasi."
+                    )
+
+                api_result = post_combined_wqms_to_api(
+                    df,
+                    weather_df,
+                    aux_df,
                 )
 
                 device_health_df = build_device_health_dataset()
@@ -2306,12 +2851,31 @@ async def main():
                 )
 
             section(
-                "KESIMPULAN V7"
+                "KESIMPULAN EAGLE V7.4 RANGE API TEST"
+            )
+
+            api_status_ok = (
+                not API_POST
+                or (
+                    api_result is not None
+                    and api_result["failed"] == 0
+                    and device_health_api_result is not None
+                    and device_health_api_result["failed"] == 0
+                )
+            )
+
+            overall_status = (
+                "PASS"
+                if validation[0] == "PASS"
+                and weather_validation[0] == "PASS"
+                and aux_validation[0] == "PASS"
+                and api_status_ok
+                else "FAIL"
             )
 
             log(
                 "STATUS :",
-                validation[0]
+                overall_status
             )
 
             log(
@@ -2320,8 +2884,43 @@ async def main():
             )
 
             log(
-                "Parameter :",
+                "Parameter WQMS :",
                 len(PARAMETERS)
+            )
+
+            log(
+                "Parameter Device Health :",
+                len(DEVICE_HEALTH_PARAMETERS)
+            )
+
+            log(
+                "Parameter Weather :",
+                len(WEATHER_PARAMETERS)
+            )
+
+            log(
+                "Parameter Pressure + Depth :",
+                len(AUX_PARAMETERS)
+            )
+
+            log(
+                "Weather record :",
+                len(weather_df)
+            )
+
+            log(
+                "Weather validation :",
+                weather_validation[0]
+            )
+
+            log(
+                "Pressure/Depth record :",
+                len(aux_df)
+            )
+
+            log(
+                "Pressure/Depth validation :",
+                aux_validation[0]
             )
 
             log(
@@ -2365,7 +2964,7 @@ async def main():
     except Exception as exc:
 
         section(
-            "ERROR V7.2"
+            "ERROR V7.4"
         )
 
         log(
@@ -2433,7 +3032,7 @@ if __name__ == "__main__":
         )
 
         print(
-            "EAGLE V7.2 SELESAI."
+            "EAGLE V7.4 RANGE API TEST SELESAI."
         )
 
         print(
