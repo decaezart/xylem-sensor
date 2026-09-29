@@ -3,6 +3,7 @@ name: Eagle WQMS Scraper
 on:
   schedule:
     - cron: "9 */2 * * *"
+      timezone: "Asia/Makassar"
   workflow_dispatch:
 
 jobs:
