@@ -2,7 +2,7 @@ name: Eagle WQMS Scraper
 
 on:
   schedule:
-    - cron: "7 * * * *"
+    - cron: "9 */2 * * *"
   workflow_dispatch:
 
 jobs:
